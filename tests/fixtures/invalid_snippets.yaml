@@ -1,0 +1,7 @@
+version: 1
+snippets:
+  - id: broken-snippet
+    name: Missing Content Field
+    description: This snippet is missing the required content field
+    tags: [test]
+    # content field intentionally omitted to trigger validation error

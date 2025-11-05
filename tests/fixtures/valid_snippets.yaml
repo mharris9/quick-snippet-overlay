@@ -1,0 +1,25 @@
+version: 1
+snippets:
+  - id: test-snippet-1
+    name: Test Snippet
+    description: A test snippet for unit tests
+    content: echo "Hello, World!"
+    tags: [test, example]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: test-snippet-2
+    name: PowerShell Command
+    description: List files by size
+    content: |
+      Get-ChildItem -File | Sort-Object Length -Descending
+    tags: [powershell, files]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: test-snippet-3
+    name: Python Flask with Variables
+    description: Start Flask app with custom port
+    content: |
+      flask --app {{app_name:app}} run --port {{port:5000}}
+    tags: [python, flask]
+    created: 2025-11-04
+    modified: 2025-11-04
