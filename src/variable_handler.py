@@ -129,3 +129,19 @@ def substitute_variables(content: str, values: dict[str, str]) -> str:
         result = re.sub(pattern, lambda m: replacement_value, result)
 
     return result
+
+
+class VariableHandler:
+    """
+    Wrapper class for variable handling functions.
+
+    Provides object-oriented interface to detect_variables and substitute_variables.
+    """
+
+    def detect_variables(self, content: str) -> list[dict[str, Optional[str]]]:
+        """Detect variables in content."""
+        return detect_variables(content)
+
+    def substitute_variables(self, content: str, values: dict[str, str]) -> str:
+        """Substitute variables in content with provided values."""
+        return substitute_variables(content, values)

@@ -399,3 +399,48 @@ snippets:
         observer.start()
         logger.info(f"Started file watcher for {self.file_path}")
         return observer
+
+    def add_snippet(self, snippet_data: dict) -> bool:
+        """
+        Append a new snippet to the YAML file.
+
+        Args:
+            snippet_data: Dictionary with snippet fields (id, name, description, content, tags, created, modified)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Load current YAML data
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+
+            if not data:
+                data = {'snippets': []}
+
+            # Check for duplicate ID
+            existing_ids = {s['id'] for s in data.get('snippets', [])}
+            original_id = snippet_data['id']
+            snippet_id = original_id
+            counter = 1
+
+            while snippet_id in existing_ids:
+                snippet_id = f"{original_id}-{counter}"
+                counter += 1
+
+            # Update ID if changed
+            snippet_data['id'] = snippet_id
+
+            # Append new snippet
+            data.setdefault('snippets', []).append(snippet_data)
+
+            # Write back to file
+            with open(self.file_path, 'w', encoding='utf-8') as f:
+                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+            logger.info(f"Added new snippet: {snippet_data['name']} (ID: {snippet_id})")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to add snippet: {e}")
+            return False

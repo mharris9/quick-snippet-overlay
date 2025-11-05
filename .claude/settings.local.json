@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-Object Name)",
+      "Bash(Test-Path .venvScriptsActivate.ps1)",
+      "Bash(..venvScriptsActivate.ps1)",
+      "Bash(pytest:*)",
+      "Bash(Get-Process -Id 21808 -ErrorAction SilentlyContinue)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
