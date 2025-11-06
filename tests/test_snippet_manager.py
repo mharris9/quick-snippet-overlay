@@ -860,3 +860,224 @@ snippets:
 
     # Verify count (6 unique tags total, snippet 4 has no tags)
     assert len(tags) == 7
+
+
+# ============================================================================
+# Test Case 16: Delete Snippets
+# ============================================================================
+
+
+def test_delete_snippets(temp_snippets_file):
+    """
+    Test deleting multiple snippets.
+
+    Verifies:
+    - Snippets are removed from file
+    - Remaining snippets are intact
+    - File is saved correctly
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with 3 snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-3
+    name: Snippet 3
+    description: Third snippet
+    content: echo "test 3"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+
+    # Load initial snippets
+    initial_snippets = manager.load()
+    initial_count = len(initial_snippets)
+    assert initial_count == 3
+
+    # Delete 2 snippets
+    ids_to_delete = [initial_snippets[0].id, initial_snippets[1].id]
+    manager.delete_snippets(ids_to_delete)
+
+    # Reload and verify
+    remaining_snippets = manager.load()
+    assert len(remaining_snippets) == initial_count - 2
+    assert all(s.id not in ids_to_delete for s in remaining_snippets)
+
+    # Verify the remaining snippet is the correct one
+    assert remaining_snippets[0].id == "snippet-3"
+    assert remaining_snippets[0].name == "Snippet 3"
+
+
+def test_delete_nonexistent_snippet(temp_snippets_file):
+    """
+    Test deleting non-existent snippet raises error.
+
+    Verifies:
+    - ValueError is raised
+    - Error message includes snippet ID
+    - No snippets are deleted
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with 1 snippet
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Try to delete non-existent snippet
+    with pytest.raises(ValueError, match="not found"):
+        manager.delete_snippets(["nonexistent-id"])
+
+    # Verify snippet still exists
+    snippets = manager.load()
+    assert len(snippets) == 1
+
+
+def test_delete_all_snippets(temp_snippets_file):
+    """
+    Test deleting all snippets.
+
+    Verifies:
+    - All snippets can be deleted
+    - Empty snippets list is written to file
+    - File structure is preserved
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with 2 snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+
+    # Load and delete all
+    snippets = manager.load()
+    all_ids = [s.id for s in snippets]
+    manager.delete_snippets(all_ids)
+
+    # Verify empty list
+    remaining = manager.load()
+    assert len(remaining) == 0
+
+
+def test_get_all_snippets(temp_snippets_file):
+    """
+    Test get_all_snippets convenience method.
+
+    Verifies:
+    - Returns list of all snippets
+    - Same result as load()
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Get all snippets
+    snippets = manager.get_all_snippets()
+
+    # Verify
+    assert isinstance(snippets, list)
+    assert len(snippets) == 2
+    assert snippets[0].id == "snippet-1"
+    assert snippets[1].id == "snippet-2"
+
+
+def test_save_snippets_preserves_data(temp_snippets_file):
+    """
+    Test that _save_snippets preserves all snippet data.
+
+    Verifies:
+    - All fields are saved correctly
+    - File can be reloaded successfully
+    - Dates are preserved
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create snippet with all fields
+    snippet = Snippet(
+        id="test-id",
+        name="Test Name",
+        description="Test Description",
+        content="Test Content",
+        tags=["tag1", "tag2"],
+        created=date(2025, 11, 1),
+        modified=date(2025, 11, 2),
+    )
+
+    # Save snippet
+    manager._save_snippets([snippet])
+
+    # Reload and verify
+    loaded = manager.load()
+    assert len(loaded) == 1
+
+    s = loaded[0]
+    assert s.id == "test-id"
+    assert s.name == "Test Name"
+    assert s.description == "Test Description"
+    assert s.content == "Test Content"
+    assert s.tags == ["tag1", "tag2"]
+    assert s.created == date(2025, 11, 1)
+    assert s.modified == date(2025, 11, 2)

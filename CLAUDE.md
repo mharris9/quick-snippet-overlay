@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Quick Snippet Overlay** is a Windows 11 desktop application that provides instant access to text snippets via a global hotkey. Built with Python and PySide6, it features fuzzy search, variable substitution, tag autocomplete, system tray integration, and hot-reload capabilities.
 
-**Current Status**: Phase 5 complete - Tag Autocomplete with Advanced Focus Management - All features functional
+**Current Status**: Phase 5 complete with enhancements - Tag Autocomplete, Quick Add Snippet button (+ button and Ctrl+N shortcut), and Snippet Deletion feature (🗑️ button and Ctrl+D shortcut)
 
 ---
 
@@ -96,6 +96,8 @@ OverlayWindow hides after 500ms
 - Auto-fixes duplicate IDs (appends -1, -2, etc.)
 - Maintains backup rotation (up to 5 backups)
 - Falls back to last good state on YAML errors
+- Add/delete snippets with YAML file persistence
+- Validates snippet IDs exist before deletion
 
 **Search Layer** (`search_engine.py`):
 - Fuzzy search using rapidfuzz (Levenshtein distance)
@@ -113,7 +115,11 @@ OverlayWindow hides after 500ms
 - Frameless, always-on-top Qt window
 - Multi-monitor support (centers on screen with mouse cursor)
 - Real-time search with 150ms debounce
-- Keyboard navigation (arrows, Enter, ESC)
+- Keyboard navigation (arrows, Enter, ESC, Ctrl+N, Ctrl+D)
+- Quick add snippet button (+ button in top-right corner)
+- Ctrl+N keyboard shortcut for adding snippets
+- Delete snippets button (🗑️ button next to + button)
+- Ctrl+D keyboard shortcut for deleting snippets
 - Dark theme with configurable opacity
 
 **Snippet Editor** (`snippet_editor_dialog.py`, `fuzzy_tag_completer.py`):
@@ -129,6 +135,16 @@ OverlayWindow hides after 500ms
   - Multi-tag comma-separated input support
 - Fuzzy tag matching (prefix → substring → typo-tolerant)
 - Real-time dropdown updates
+
+**Delete Snippets Dialog** (`delete_snippets_dialog.py`):
+- Mass snippet deletion with filtering capabilities
+- Real-time filter by name, description, tags, or content
+- Select/deselect all (respects current filter)
+- Individual checkbox selection
+- Confirmation dialog before deletion (prevents accidental deletion)
+- Lists snippet names in confirmation
+- Updates overlay results after deletion
+- Dark theme consistency
 
 **Integration** (`system_tray.py`, `hotkey_manager.py`, `main.py`):
 - System tray with context menu (Show/Edit Snippets/Settings/Quit)

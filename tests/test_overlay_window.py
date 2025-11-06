@@ -9,6 +9,8 @@ Test Coverage:
 5. Variable prompt integration
 6. Clipboard copying
 7. Visual feedback
+8. Add snippet button functionality
+9. Ctrl+N keyboard shortcut
 """
 
 import pytest
@@ -217,3 +219,193 @@ def test_copied_visual_feedback_appears(overlay_window):
 
     # Verify method exists and is callable
     assert callable(overlay_window._show_copied_feedback)
+
+
+def test_add_snippet_button_exists(overlay_window):
+    """Test that add snippet button is present in overlay."""
+    # Verify button exists
+    assert hasattr(overlay_window, "add_button")
+    assert overlay_window.add_button is not None
+
+    # Verify button properties
+    assert overlay_window.add_button.text() == "+"
+    assert overlay_window.add_button.toolTip() == "Add New Snippet (Ctrl+N)"
+
+    # Verify button size
+    assert overlay_window.add_button.width() == 40
+    assert overlay_window.add_button.height() == 40
+
+
+def test_add_snippet_button_click_opens_dialog(overlay_window):
+    """Test clicking add button opens SnippetEditorDialog."""
+    with patch("src.snippet_editor_dialog.SnippetEditorDialog") as mock_dialog_class:
+        # Setup mock dialog
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 0  # QDialog.DialogCode.Rejected
+        mock_dialog_class.return_value = mock_dialog
+
+        # Click button
+        overlay_window.add_button.click()
+
+        # Verify dialog was created with correct parameters
+        mock_dialog_class.assert_called_once_with(
+            snippet_manager=overlay_window.snippet_manager, parent=overlay_window
+        )
+
+        # Verify dialog was shown
+        mock_dialog.exec.assert_called_once()
+
+
+def test_add_snippet_button_click_updates_results_on_save(overlay_window):
+    """Test that saving a snippet updates overlay results."""
+    from PySide6.QtWidgets import QDialog
+
+    with patch("src.snippet_editor_dialog.SnippetEditorDialog") as mock_dialog_class:
+        # Setup mock dialog to simulate save (Accepted)
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = QDialog.DialogCode.Accepted
+        mock_dialog_class.return_value = mock_dialog
+
+        # Set search text to verify it's preserved
+        overlay_window.search_input.setText("test")
+
+        # Click button
+        overlay_window.add_button.click()
+
+        # Verify dialog was shown
+        mock_dialog.exec.assert_called_once()
+
+        # Verify search text is still present
+        assert overlay_window.search_input.text() == "test"
+
+
+def test_ctrl_n_shortcut_opens_dialog(overlay_window):
+    """Test Ctrl+N keyboard shortcut opens add snippet dialog."""
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtCore import QEvent
+
+    with patch("src.snippet_editor_dialog.SnippetEditorDialog") as mock_dialog_class:
+        # Setup mock dialog
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 0  # QDialog.DialogCode.Rejected
+        mock_dialog_class.return_value = mock_dialog
+
+        # Create Ctrl+N key event
+        key_event = QKeyEvent(
+            QEvent.Type.KeyPress, Qt.Key.Key_N, Qt.KeyboardModifier.ControlModifier
+        )
+
+        # Trigger key press
+        overlay_window.keyPressEvent(key_event)
+
+        # Verify dialog was created and shown
+        mock_dialog_class.assert_called_once_with(
+            snippet_manager=overlay_window.snippet_manager, parent=overlay_window
+        )
+        mock_dialog.exec.assert_called_once()
+
+
+def test_add_snippet_handler_method_exists(overlay_window):
+    """Test that _on_add_snippet_clicked handler method exists."""
+    # Verify method exists and is callable
+    assert hasattr(overlay_window, "_on_add_snippet_clicked")
+    assert callable(overlay_window._on_add_snippet_clicked)
+
+
+def test_delete_button_exists(overlay_window):
+    """Test that delete button is present in overlay."""
+    # Verify delete button exists
+    assert hasattr(overlay_window, "delete_button")
+    assert overlay_window.delete_button is not None
+
+    # Verify tooltip
+    assert overlay_window.delete_button.toolTip() == "Delete Snippets (Ctrl+D)"
+
+    # Verify button text (trash icon)
+    assert "🗑️" in overlay_window.delete_button.text()
+
+
+def test_delete_button_click_opens_dialog(overlay_window):
+    """Test clicking delete button opens DeleteSnippetsDialog."""
+    with patch("src.overlay_window.DeleteSnippetsDialog") as mock_dialog_class:
+        # Setup mock dialog
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 0  # QDialog.DialogCode.Rejected
+        mock_dialog_class.return_value = mock_dialog
+
+        # Click delete button
+        overlay_window.delete_button.click()
+
+        # Verify dialog was created
+        mock_dialog_class.assert_called_once()
+
+        # Verify exec was called
+        mock_dialog.exec.assert_called_once()
+
+
+def test_delete_button_click_updates_results_on_delete(overlay_window):
+    """Test that clicking delete button and accepting updates results."""
+    with patch("src.overlay_window.DeleteSnippetsDialog") as mock_dialog_class:
+        # Setup mock dialog to return Accepted
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 1  # QDialog.DialogCode.Accepted
+        mock_dialog_class.return_value = mock_dialog
+
+        # Set search text
+        overlay_window.search_input.setText("test")
+
+        # Click delete button
+        overlay_window.delete_button.click()
+
+        # Verify dialog was created and exec called
+        mock_dialog_class.assert_called_once()
+        mock_dialog.exec.assert_called_once()
+
+        # Results should be updated (can't easily verify without full integration)
+        # But at least verify the code path executes without error
+
+
+def test_ctrl_d_shortcut_opens_delete_dialog(overlay_window):
+    """Test Ctrl+D keyboard shortcut opens delete dialog."""
+    with patch("src.overlay_window.DeleteSnippetsDialog") as mock_dialog_class:
+        # Setup mock dialog
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 0  # QDialog.DialogCode.Rejected
+        mock_dialog_class.return_value = mock_dialog
+
+        # Create Ctrl+D key event
+        key_event = QKeyEvent(
+            QEvent.Type.KeyPress, Qt.Key.Key_D, Qt.KeyboardModifier.ControlModifier
+        )
+
+        # Trigger key press
+        overlay_window.keyPressEvent(key_event)
+
+        # Verify dialog was created and shown
+        mock_dialog_class.assert_called_once()
+        mock_dialog.exec.assert_called_once()
+
+
+def test_delete_snippet_handler_method_exists(overlay_window):
+    """Test that _on_delete_snippets_clicked handler method exists."""
+    # Verify method exists and is callable
+    assert hasattr(overlay_window, "_on_delete_snippets_clicked")
+    assert callable(overlay_window._on_delete_snippets_clicked)
+
+
+def test_delete_button_passes_snippets_to_dialog(overlay_window):
+    """Test that delete button passes all snippets to dialog."""
+    with patch("src.overlay_window.DeleteSnippetsDialog") as mock_dialog_class:
+        # Setup mock dialog
+        mock_dialog = Mock()
+        mock_dialog.exec.return_value = 0
+        mock_dialog_class.return_value = mock_dialog
+
+        # Click delete button
+        overlay_window.delete_button.click()
+
+        # Verify dialog was created with snippets and snippet_manager
+        call_args = mock_dialog_class.call_args
+        assert "snippets" in call_args.kwargs
+        assert "snippet_manager" in call_args.kwargs
+        assert call_args.kwargs["snippet_manager"] == overlay_window.snippet_manager

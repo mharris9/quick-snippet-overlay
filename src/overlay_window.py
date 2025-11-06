@@ -13,12 +13,14 @@ import logging
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QLineEdit,
     QListWidget,
     QLabel,
     QListWidgetItem,
     QMessageBox,
     QApplication,
+    QPushButton,
 )
 from PySide6.QtCore import Qt, QTimer, QCoreApplication
 from PySide6.QtGui import QCursor, QKeyEvent
@@ -38,6 +40,7 @@ class OverlayWindow(QWidget):
     - Multi-monitor support (centers on active monitor)
     - Variable prompt integration
     - Clipboard copy with visual feedback
+    - Quick add snippet button (+ button or Ctrl+N)
     """
 
     def __init__(self, config, snippet_manager, search_engine, variable_handler):
@@ -88,14 +91,69 @@ class OverlayWindow(QWidget):
         # Main layout
         layout = QVBoxLayout()
 
-        # Search input (top, 40px height, 16pt font)
+        # Top layout: search input + add button
+        top_layout = QHBoxLayout()
+
+        # Search input (40px height, 16pt font)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search snippets...")
         self.search_input.setFixedHeight(40)
         font = self.search_input.font()
         font.setPointSize(16)
         self.search_input.setFont(font)
-        layout.addWidget(self.search_input)
+        top_layout.addWidget(self.search_input)
+
+        # Delete snippets button
+        self.delete_button = QPushButton("🗑️")
+        self.delete_button.setToolTip("Delete Snippets (Ctrl+D)")
+        self.delete_button.setFixedSize(40, 40)
+        self.delete_button.clicked.connect(self._on_delete_snippets_clicked)
+        self.delete_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #d32f2f;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #c62828;
+            }
+            QPushButton:pressed {
+                background-color: #b71c1c;
+            }
+        """
+        )
+        top_layout.addWidget(self.delete_button)
+
+        # Add snippet button
+        self.add_button = QPushButton("+")
+        self.add_button.setToolTip("Add New Snippet (Ctrl+N)")
+        self.add_button.setFixedSize(40, 40)
+        self.add_button.clicked.connect(self._on_add_snippet_clicked)
+        self.add_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """
+        )
+        top_layout.addWidget(self.add_button)
+
+        layout.addLayout(top_layout)
 
         # Results list (scrollable)
         self.results_list = QListWidget()
@@ -255,8 +313,24 @@ class OverlayWindow(QWidget):
             self.results_list.setCurrentRow(0)
 
     def keyPressEvent(self, event: QKeyEvent):
-        """Handle keyboard events (Enter, ESC, arrows)."""
-        if event.key() == Qt.Key.Key_Escape:
+        """Handle keyboard events (Ctrl+N, Ctrl+D, Enter, ESC, arrows)."""
+        # Ctrl+N to add new snippet
+        if (
+            event.key() == Qt.Key.Key_N
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            self._on_add_snippet_clicked()
+            event.accept()
+            return
+        # Ctrl+D to delete snippets
+        elif (
+            event.key() == Qt.Key.Key_D
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            self._on_delete_snippets_clicked()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Escape:
             self.hide_overlay()
         elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self._on_snippet_selected()
@@ -347,3 +421,48 @@ class OverlayWindow(QWidget):
         """Show brief 'Copied!' message."""
         self.copied_label.show()
         QTimer.singleShot(500, self.copied_label.hide)
+
+    def _on_add_snippet_clicked(self):
+        """Open the Add Snippet dialog."""
+        from src.snippet_editor_dialog import SnippetEditorDialog
+        from PySide6.QtWidgets import QDialog
+
+        # Create and show dialog
+        dialog = SnippetEditorDialog(
+            snippet_manager=self.snippet_manager,
+            parent=self,  # Overlay as parent for proper stacking
+        )
+
+        # Show dialog modally
+        result = dialog.exec()
+
+        # If snippet was saved, refresh the overlay results
+        if result == QDialog.DialogCode.Accepted:
+            # Reload snippets (snippet_manager watches file, but force refresh)
+            self._update_results(self.search_input.text())
+
+            # Restore focus to search input
+            self.search_input.setFocus()
+
+    def _on_delete_snippets_clicked(self):
+        """Open the Delete Snippets dialog."""
+        from src.delete_snippets_dialog import DeleteSnippetsDialog
+        from PySide6.QtWidgets import QDialog
+
+        # Get all snippets from snippet_manager
+        snippets = self.snippet_manager.get_all_snippets()
+
+        # IMPORTANT: Hide the overlay before showing the dialog
+        # This prevents keyboard/focus conflicts with the Popup window
+        self.hide()
+
+        # Create and show dialog (parent=None to make it independent)
+        dialog = DeleteSnippetsDialog(
+            snippets=snippets, snippet_manager=self.snippet_manager, parent=None
+        )
+
+        # Show dialog modally
+        result = dialog.exec()
+
+        # Don't automatically show the overlay again - user can reopen with hotkey
+        # This prevents the overlay from interfering with other applications

@@ -468,3 +468,87 @@ snippets:
         for snippet in self.snippets:
             tags.update(snippet.tags)
         return sorted(tags)
+
+    def delete_snippets(self, snippet_ids: List[str]) -> None:
+        """
+        Delete multiple snippets by their IDs.
+
+        Args:
+            snippet_ids: List of snippet IDs to delete
+
+        Raises:
+            ValueError: If any snippet ID is not found
+            IOError: If YAML file cannot be written
+        """
+        # Load current snippets
+        current_snippets = self.load()
+
+        # Verify all IDs exist
+        existing_ids = {s.id for s in current_snippets}
+        for snippet_id in snippet_ids:
+            if snippet_id not in existing_ids:
+                raise ValueError(f"Snippet with ID '{snippet_id}' not found")
+
+        # Filter out snippets to delete
+        remaining_snippets = [s for s in current_snippets if s.id not in snippet_ids]
+
+        # Save updated snippets
+        self._save_snippets(remaining_snippets)
+
+        logger.info(f"Deleted {len(snippet_ids)} snippet(s): {snippet_ids}")
+
+    def _save_snippets(self, snippets: List[Snippet]) -> None:
+        """
+        Save snippets to YAML file.
+
+        Args:
+            snippets: List of Snippet objects to save
+
+        Raises:
+            IOError: If file cannot be written
+        """
+        # Convert snippets to dict format
+        snippets_data = {
+            "version": 1,
+            "snippets": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "description": s.description,
+                    "content": s.content,
+                    "tags": s.tags,
+                    "created": s.created.isoformat()
+                    if isinstance(s.created, date)
+                    else s.created,
+                    "modified": s.modified.isoformat()
+                    if isinstance(s.modified, date)
+                    else s.modified,
+                }
+                for s in snippets
+            ],
+        }
+
+        # Write to file
+        try:
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    snippets_data,
+                    f,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+
+            logger.info(f"Saved {len(snippets)} snippets to {self.file_path}")
+        except Exception as e:
+            logger.error(f"Failed to save snippets: {e}")
+            raise IOError(f"Failed to save snippets: {e}")
+
+    def get_all_snippets(self) -> List[Snippet]:
+        """
+        Get all snippets (convenience method).
+
+        Returns:
+            List of all Snippet objects
+        """
+        return self.load()
