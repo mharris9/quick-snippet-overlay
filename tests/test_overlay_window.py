@@ -42,7 +42,7 @@ def overlay_window(qt_app):
     import src.variable_handler as variable_handler
 
     config = ConfigManager()
-    snippet_manager = SnippetManager('tests/fixtures/search_snippets.yaml')
+    snippet_manager = SnippetManager("tests/fixtures/search_snippets.yaml")
     snippets = snippet_manager.load()
     search_engine = SearchEngine(snippets)
 
@@ -105,6 +105,7 @@ def test_search_updates_results(overlay_window):
 
     # Wait for debounce
     import time
+
     time.sleep(0.2)  # Wait 200ms for 150ms debounce
 
     # Process events again
@@ -129,7 +130,9 @@ def test_keyboard_navigation(overlay_window):
     assert overlay_window.results_list.currentRow() == 0
 
     # Send Down arrow key
-    key_down = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Down, Qt.KeyboardModifier.NoModifier)
+    key_down = QKeyEvent(
+        QEvent.Type.KeyPress, Qt.Key.Key_Down, Qt.KeyboardModifier.NoModifier
+    )
     overlay_window.keyPressEvent(key_down)
 
     # Verify selection moved (if more than 1 result)
@@ -139,7 +142,7 @@ def test_keyboard_navigation(overlay_window):
 
 def test_enter_key_with_no_variables_copies_directly(overlay_window):
     """Test Enter copies snippet to clipboard if no variables."""
-    with patch('src.overlay_window.pyperclip.copy') as mock_copy:
+    with patch("src.overlay_window.pyperclip.copy") as mock_copy:
         # Populate results
         overlay_window._update_results("git")
 
@@ -169,7 +172,9 @@ def test_escape_key_closes_window(overlay_window):
     assert overlay_window.isVisible()
 
     # Send ESC key
-    key_esc = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
+    key_esc = QKeyEvent(
+        QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier
+    )
     overlay_window.keyPressEvent(key_esc)
 
     # Verify window is hidden

@@ -58,13 +58,15 @@ def test_parse_snippet_invalid_date_falls_back_to_today(tmp_path):
     manager = SnippetManager(str(tmp_path / "test.yaml"))
 
     # Manually parse data with invalid date
-    data = [{
-        'id': 'test',
-        'name': 'Test',
-        'content': 'Test content',
-        'created': 12345,  # Invalid date (integer)
-        'modified': None   # Invalid date (None)
-    }]
+    data = [
+        {
+            "id": "test",
+            "name": "Test",
+            "content": "Test content",
+            "created": 12345,  # Invalid date (integer)
+            "modified": None,  # Invalid date (None)
+        }
+    ]
 
     snippets = manager._parse_snippets(data)
     assert len(snippets) == 1
@@ -77,13 +79,15 @@ def test_parse_snippet_with_parse_error(tmp_path):
     manager = SnippetManager(str(tmp_path / "test.yaml"))
 
     # Create data that will cause exception
-    data = [{
-        'id': 'test',
-        'name': 'Test',
-        'content': 'Test content',
-        'created': '2025-11-04',
-        'modified': 'invalid-date-format'  # Will raise ValueError
-    }]
+    data = [
+        {
+            "id": "test",
+            "name": "Test",
+            "content": "Test content",
+            "created": "2025-11-04",
+            "modified": "invalid-date-format",  # Will raise ValueError
+        }
+    ]
 
     snippets = manager._parse_snippets(data)
     # Should handle error gracefully and skip this snippet

@@ -11,8 +11,14 @@ Classes:
 from typing import Optional
 import logging
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLineEdit, QListWidget,
-    QLabel, QListWidgetItem, QMessageBox, QApplication
+    QWidget,
+    QVBoxLayout,
+    QLineEdit,
+    QListWidget,
+    QLabel,
+    QListWidgetItem,
+    QMessageBox,
+    QApplication,
 )
 from PySide6.QtCore import Qt, QTimer, QCoreApplication
 from PySide6.QtGui import QCursor, QKeyEvent
@@ -63,20 +69,20 @@ class OverlayWindow(QWidget):
         """Create and configure UI components."""
         # Window flags: frameless, always-on-top, popup (auto-close and escape work)
         self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Popup
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.Popup
         )
 
         # Attribute to prevent auto-close during drag
         self.setAttribute(Qt.WidgetAttribute.WA_NoMousePropagation, False)
 
         # Size and opacity from config
-        width = self.config.get('overlay_width', 600)
-        height = self.config.get('overlay_height', 400)
+        width = self.config.get("overlay_width", 600)
+        height = self.config.get("overlay_height", 400)
         self.setFixedSize(width, height)
 
-        opacity = self.config.get('overlay_opacity', 0.95)
+        opacity = self.config.get("overlay_opacity", 0.95)
         self.setWindowOpacity(opacity)
 
         # Main layout
@@ -97,7 +103,9 @@ class OverlayWindow(QWidget):
 
         # "Copied!" feedback label (initially hidden)
         self.copied_label = QLabel("Copied!")
-        self.copied_label.setStyleSheet("color: green; font-weight: bold; font-size: 14pt;")
+        self.copied_label.setStyleSheet(
+            "color: green; font-weight: bold; font-size: 14pt;"
+        )
         self.copied_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.copied_label.hide()
         layout.addWidget(self.copied_label)
@@ -109,9 +117,9 @@ class OverlayWindow(QWidget):
 
     def _apply_theme(self):
         """Apply dark theme styling."""
-        theme = self.config.get('theme', 'dark')
+        theme = self.config.get("theme", "dark")
 
-        if theme == 'dark':
+        if theme == "dark":
             dark_theme = """
             QWidget {
                 background-color: #2b2b2b;
@@ -188,6 +196,7 @@ class OverlayWindow(QWidget):
             snippets = self.snippet_manager.load()
             # Update search engine with new snippets
             from src.search_engine import SearchEngine
+
             self.search_engine = SearchEngine(snippets)
             # If overlay is visible, refresh search results
             if self.isVisible():
@@ -202,7 +211,7 @@ class OverlayWindow(QWidget):
             self.debounce_timer.stop()
 
         # Create new debounce timer
-        debounce_ms = self.config.get('search_debounce_ms', 150)
+        debounce_ms = self.config.get("search_debounce_ms", 150)
         self.debounce_timer = QTimer()
         self.debounce_timer.setSingleShot(True)
         self.debounce_timer.timeout.connect(lambda: self._update_results(text))
@@ -217,8 +226,8 @@ class OverlayWindow(QWidget):
             return
 
         # Search snippets
-        max_results = self.config.get('max_results', 10)
-        threshold = self.config.get('fuzzy_threshold', 60)
+        max_results = self.config.get("max_results", 10)
+        threshold = self.config.get("fuzzy_threshold", 60)
 
         results = self.search_engine.search(query, threshold=threshold)
 
@@ -227,13 +236,13 @@ class OverlayWindow(QWidget):
 
         # Display results with truncation
         for result in limited_results:
-            snippet = result['snippet']
+            snippet = result["snippet"]
 
             # Truncate content to 2 lines
-            content_lines = snippet.content.split('\n')
-            truncated = '\n'.join(content_lines[:2])
+            content_lines = snippet.content.split("\n")
+            truncated = "\n".join(content_lines[:2])
             if len(content_lines) > 2:
-                truncated += '\n...'
+                truncated += "\n..."
 
             # Create list item
             item = QListWidgetItem()
@@ -268,14 +277,19 @@ class OverlayWindow(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             # Record starting position for drag
             try:
-                self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                self.drag_position = (
+                    event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                )
             except AttributeError:
                 self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
             event.accept()
 
     def mouseMoveEvent(self, event):
         """Handle mouse move for dragging window."""
-        if event.buttons() == Qt.MouseButton.LeftButton and self.drag_position is not None:
+        if (
+            event.buttons() == Qt.MouseButton.LeftButton
+            and self.drag_position is not None
+        ):
             try:
                 new_pos = event.globalPosition().toPoint() - self.drag_position
             except AttributeError:

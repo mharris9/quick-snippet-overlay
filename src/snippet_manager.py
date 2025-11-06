@@ -30,9 +30,9 @@ from watchdog.events import FileSystemEventHandler
 # ============================================================================
 
 logging.basicConfig(
-    filename='quick-snippet-overlay.log',
+    filename="quick-snippet-overlay.log",
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Snippet Data Class
 # ============================================================================
+
 
 @dataclass
 class Snippet:
@@ -55,6 +56,7 @@ class Snippet:
         created: Creation date
         modified: Last modification date
     """
+
     id: str
     name: str
     description: str
@@ -77,6 +79,7 @@ class Snippet:
 # ============================================================================
 # SnippetManager Class
 # ============================================================================
+
 
 class SnippetManager:
     """
@@ -123,14 +126,14 @@ class SnippetManager:
             self._create_sample_file()
 
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
-            if not data or 'snippets' not in data:
+            if not data or "snippets" not in data:
                 logger.warning(f"Invalid YAML structure in {self.file_path}")
                 return self.last_good_state
 
-            snippets = self._parse_snippets(data['snippets'])
+            snippets = self._parse_snippets(data["snippets"])
             snippets = self._fix_duplicate_ids(snippets)
             self.snippets = snippets
             self.last_good_state = snippets
@@ -236,7 +239,7 @@ snippets:
     modified: 2025-11-04
 """
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
-        self.file_path.write_text(sample_content, encoding='utf-8')
+        self.file_path.write_text(sample_content, encoding="utf-8")
         logger.info(f"Created sample snippets file at {self.file_path}")
 
     def _parse_snippets(self, data: List[dict]) -> List[Snippet]:
@@ -254,12 +257,14 @@ snippets:
             try:
                 # Validate required fields
                 if not self._validate_schema(snippet_dict):
-                    logger.warning(f"Invalid snippet schema: {snippet_dict.get('id', 'unknown')}")
+                    logger.warning(
+                        f"Invalid snippet schema: {snippet_dict.get('id', 'unknown')}"
+                    )
                     continue
 
                 # Parse dates
-                created = snippet_dict.get('created')
-                modified = snippet_dict.get('modified')
+                created = snippet_dict.get("created")
+                modified = snippet_dict.get("modified")
 
                 if isinstance(created, str):
                     created = date.fromisoformat(created)
@@ -273,13 +278,13 @@ snippets:
 
                 # Create Snippet object
                 snippet = Snippet(
-                    id=snippet_dict['id'],
-                    name=snippet_dict['name'],
-                    description=snippet_dict.get('description', ''),
-                    content=snippet_dict['content'],
-                    tags=snippet_dict.get('tags', []),
+                    id=snippet_dict["id"],
+                    name=snippet_dict["name"],
+                    description=snippet_dict.get("description", ""),
+                    content=snippet_dict["content"],
+                    tags=snippet_dict.get("tags", []),
                     created=created,
-                    modified=modified
+                    modified=modified,
                 )
 
                 # Validate snippet
@@ -304,7 +309,7 @@ snippets:
         Returns:
             True if valid, False otherwise
         """
-        required_fields = ['id', 'name', 'content']
+        required_fields = ["id", "name", "content"]
 
         for field in required_fields:
             if field not in snippet_dict or not snippet_dict[field]:
@@ -376,6 +381,7 @@ snippets:
         Returns:
             Observer object (must be stopped when done)
         """
+
         class DebouncedHandler(FileSystemEventHandler):
             """File system event handler with debounce logic."""
 
@@ -387,7 +393,7 @@ snippets:
 
             def on_modified(self, event):
                 """Handle file modification event."""
-                if event.src_path.endswith('snippets.yaml'):
+                if event.src_path.endswith("snippets.yaml"):
                     now = time.time()
                     if now - self.last_reload > self.debounce_delay:
                         self.last_reload = now
@@ -412,15 +418,15 @@ snippets:
         """
         try:
             # Load current YAML data
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
 
             if not data:
-                data = {'snippets': []}
+                data = {"snippets": []}
 
             # Check for duplicate ID
-            existing_ids = {s['id'] for s in data.get('snippets', [])}
-            original_id = snippet_data['id']
+            existing_ids = {s["id"] for s in data.get("snippets", [])}
+            original_id = snippet_data["id"]
             snippet_id = original_id
             counter = 1
 
@@ -429,14 +435,20 @@ snippets:
                 counter += 1
 
             # Update ID if changed
-            snippet_data['id'] = snippet_id
+            snippet_data["id"] = snippet_id
 
             # Append new snippet
-            data.setdefault('snippets', []).append(snippet_data)
+            data.setdefault("snippets", []).append(snippet_data)
 
             # Write back to file
-            with open(self.file_path, 'w', encoding='utf-8') as f:
-                yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    data,
+                    f,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
 
             logger.info(f"Added new snippet: {snippet_data['name']} (ID: {snippet_id})")
             return True
@@ -444,3 +456,15 @@ snippets:
         except Exception as e:
             logger.error(f"Failed to add snippet: {e}")
             return False
+
+    def get_all_tags(self) -> List[str]:
+        """
+        Get all unique tags from loaded snippets.
+
+        Returns:
+            Sorted list of unique tags from all snippets
+        """
+        tags = set()
+        for snippet in self.snippets:
+            tags.update(snippet.tags)
+        return sorted(tags)

@@ -93,7 +93,7 @@ def test_dialog_empty_input_shows_error(qt_app):
     dialog.input_field.setText("")  # Empty input
 
     # Mock QMessageBox to prevent actual dialog from showing
-    with patch.object(QMessageBox, 'warning') as mock_warning:
+    with patch.object(QMessageBox, "warning") as mock_warning:
         dialog._on_ok()
 
         # Verify warning was shown
@@ -107,12 +107,12 @@ def test_sequential_prompts_for_multiple_variables(qt_app):
     from unittest.mock import patch, MagicMock
 
     variables = [
-        {'name': 'var1', 'default': None},
-        {'name': 'var2', 'default': 'default2'}
+        {"name": "var1", "default": None},
+        {"name": "var2", "default": "default2"},
     ]
 
     # Mock the dialog to return values without showing UI
-    with patch('src.variable_prompt_dialog.VariablePromptDialog') as MockDialog:
+    with patch("src.variable_prompt_dialog.VariablePromptDialog") as MockDialog:
         mock_dialog1 = MagicMock()
         mock_dialog1.get_value.return_value = "value1"
 
@@ -123,7 +123,7 @@ def test_sequential_prompts_for_multiple_variables(qt_app):
 
         result = prompt_for_variables(variables)
 
-        assert result == {'var1': 'value1', 'var2': 'value2'}
+        assert result == {"var1": "value1", "var2": "value2"}
         assert MockDialog.call_count == 2
 
 
@@ -133,13 +133,13 @@ def test_cancel_during_sequential_prompts_aborts(qt_app):
     from unittest.mock import patch, MagicMock
 
     variables = [
-        {'name': 'var1', 'default': None},
-        {'name': 'var2', 'default': None},
-        {'name': 'var3', 'default': None}
+        {"name": "var1", "default": None},
+        {"name": "var2", "default": None},
+        {"name": "var3", "default": None},
     ]
 
     # Mock the dialog: first returns value, second returns None (cancel), third never called
-    with patch('src.variable_prompt_dialog.VariablePromptDialog') as MockDialog:
+    with patch("src.variable_prompt_dialog.VariablePromptDialog") as MockDialog:
         mock_dialog1 = MagicMock()
         mock_dialog1.get_value.return_value = "value1"
 

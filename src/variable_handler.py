@@ -35,7 +35,7 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
     # Use lookahead (?=...) to find ALL possible {{...}} patterns including overlapping ones
     # This handles cases like {{{var}}} which contains both {{{var}} and {{var}}
     # We use non-greedy .+? to stop at the first }}
-    pattern = r'(?=\{\{(.+?)\}\})'
+    pattern = r"(?=\{\{(.+?)\}\})"
 
     # findall with lookahead returns only the captured groups
     matches = re.findall(pattern, content)
@@ -46,11 +46,11 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
     for match in matches:
         # Parse variable name and optional default value
         # Split on first colon only (to handle defaults like "https://example.com")
-        parts = match.split(':', 1)
+        parts = match.split(":", 1)
         var_name = parts[0].strip()
 
         # Validate variable name: alphanumeric + underscore only
-        if not re.match(r'^[a-zA-Z0-9_]+$', var_name):
+        if not re.match(r"^[a-zA-Z0-9_]+$", var_name):
             # Invalid variable name - skip it
             continue
 
@@ -67,10 +67,7 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
         # Extract default value if present
         default_value = parts[1] if len(parts) > 1 else None
 
-        variables.append({
-            'name': var_name,
-            'default': default_value
-        })
+        variables.append({"name": var_name, "default": default_value})
 
     return variables
 
@@ -103,14 +100,14 @@ def substitute_variables(content: str, values: dict[str, str]) -> str:
     substitutions = {}
 
     for var in variables:
-        var_name = var['name']
+        var_name = var["name"]
 
         if var_name in values:
             # Use provided value
             substitutions[var_name] = values[var_name]
-        elif var['default'] is not None:
+        elif var["default"] is not None:
             # Use default value
-            substitutions[var_name] = var['default']
+            substitutions[var_name] = var["default"]
         else:
             # No value provided and no default - error
             raise ValueError(
@@ -124,7 +121,7 @@ def substitute_variables(content: str, values: dict[str, str]) -> str:
     for var_name, replacement_value in substitutions.items():
         # Pattern to match {{var_name}} or {{var_name:anything}}
         # Use word boundaries and escape the variable name for regex safety
-        pattern = r'\{\{' + re.escape(var_name) + r'(?::[^}]*)?\}\}'
+        pattern = r"\{\{" + re.escape(var_name) + r"(?::[^}]*)?\}\}"
         # Use lambda to avoid backslash interpretation in replacement string
         result = re.sub(pattern, lambda m: replacement_value, result)
 

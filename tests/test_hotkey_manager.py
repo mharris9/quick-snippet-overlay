@@ -61,7 +61,7 @@ def test_hotkey_listener_start(qapp):
     """Test that hotkey listener starts correctly."""
     from src.hotkey_manager import HotkeyManager
 
-    with patch('pynput.keyboard.Listener') as mock_listener_class:
+    with patch("pynput.keyboard.Listener") as mock_listener_class:
         mock_listener_instance = Mock()
         mock_listener_class.return_value = mock_listener_instance
 
@@ -127,7 +127,7 @@ def test_hotkey_unregistration(qapp):
     """Test that hotkey listener is stopped and cleaned up."""
     from src.hotkey_manager import HotkeyManager
 
-    with patch('pynput.keyboard.Listener') as mock_listener_class:
+    with patch("pynput.keyboard.Listener") as mock_listener_class:
         mock_listener_instance = Mock()
         mock_listener_class.return_value = mock_listener_instance
 
@@ -148,7 +148,7 @@ def test_multiple_start_calls_ignored(qapp):
     """Test that calling start() multiple times doesn't create multiple listeners."""
     from src.hotkey_manager import HotkeyManager
 
-    with patch('pynput.keyboard.Listener') as mock_listener_class:
+    with patch("pynput.keyboard.Listener") as mock_listener_class:
         mock_listener_instance = Mock()
         mock_listener_class.return_value = mock_listener_instance
 

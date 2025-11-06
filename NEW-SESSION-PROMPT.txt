@@ -1,0 +1,29 @@
+Read the file HANDOFF-FOCUS-BUG-SESSION-2.md and fix the tag autocomplete focus stealing bug.
+
+CRITICAL CONTEXT:
+- You have access to 'puppeteer' MCP server - use it to observe actual app behavior
+- The bug: typing in Tags field causes focus to jump to dropdown after each keystroke
+- 10+ fixes attempted, all failed (documented in handoff)
+- Current attempt (Test #1): Bypassing QCompleter.setModel() - still failing
+
+YOUR TASK:
+1. Read HANDOFF-FOCUS-BUG-SESSION-2.md thoroughly
+2. Use puppeteer to launch RUN-APP.bat and observe the focus bug
+3. Add focus debugging to identify EXACT line where focus is stolen
+4. Try Test #2: Explicit focus restoration with processEvents()
+5. If that fails, try Test #3: Change event.ignore() to event.accept()
+6. If all fails: Nuclear option (replace QCompleter with QMenu)
+
+The handoff document has complete details on:
+- Bug symptoms and expected behavior
+- All attempted fixes (10+ attempts documented)
+- Current code state (src/snippet_editor_dialog.py lines 139-310)
+- Debugging strategy with code snippets
+- Test cases to verify fix
+
+File location: C:\Users\mikeh\software_projects\quick-snippet-overlay\HANDOFF-FOCUS-BUG-SESSION-2.md
+
+Run command: RUN-APP.bat (from project root)
+Test procedure: Right-click tray icon → "Add Snippet" → type in Tags field
+
+SUCCESS = User can type "python" continuously without clicking back after each letter.

@@ -13,8 +13,13 @@ Functions:
 
 from typing import List, Optional, Dict
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QMessageBox
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt
 
@@ -30,7 +35,9 @@ class VariablePromptDialog(QDialog):
     - Returns None on cancel, value on OK
     """
 
-    def __init__(self, variable_name: str, default_value: Optional[str] = None, parent=None):
+    def __init__(
+        self, variable_name: str, default_value: Optional[str] = None, parent=None
+    ):
         """
         Initialize variable prompt dialog.
 
@@ -91,9 +98,7 @@ class VariablePromptDialog(QDialog):
         value = self.input_field.text().strip()
         if not value:
             QMessageBox.warning(
-                self,
-                "Error",
-                "This field is required. Please enter a value."
+                self, "Error", "This field is required. Please enter a value."
             )
             return
 
@@ -113,7 +118,9 @@ class VariablePromptDialog(QDialog):
         return None
 
 
-def prompt_for_variables(variables: List[Dict[str, Optional[str]]], parent=None) -> Optional[Dict[str, str]]:
+def prompt_for_variables(
+    variables: List[Dict[str, Optional[str]]], parent=None
+) -> Optional[Dict[str, str]]:
     """
     Show sequential prompts for each variable.
 
@@ -134,8 +141,8 @@ def prompt_for_variables(variables: List[Dict[str, Optional[str]]], parent=None)
     values = {}
 
     for var in variables:
-        var_name = var['name']
-        var_default = var.get('default')
+        var_name = var["name"]
+        var_default = var.get("default")
 
         dialog = VariablePromptDialog(var_name, var_default, parent)
         value = dialog.get_value()

@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Quick Snippet Overlay** is a Windows 11 desktop application that provides instant access to text snippets via a global hotkey. Built with Python and PySide6, it features fuzzy search, variable substitution, system tray integration, and hot-reload capabilities.
+**Quick Snippet Overlay** is a Windows 11 desktop application that provides instant access to text snippets via a global hotkey. Built with Python and PySide6, it features fuzzy search, variable substitution, tag autocomplete, system tray integration, and hot-reload capabilities.
 
-**Current Status**: Phase 6 complete (6/7 phases) - 92% test coverage, 101 passing tests
+**Current Status**: Phase 5 complete - Tag Autocomplete with Advanced Focus Management - All features functional
 
 ---
 
@@ -116,6 +116,20 @@ OverlayWindow hides after 500ms
 - Keyboard navigation (arrows, Enter, ESC)
 - Dark theme with configurable opacity
 
+**Snippet Editor** (`snippet_editor_dialog.py`, `fuzzy_tag_completer.py`):
+- Add/Edit snippet dialog with form validation
+- **Tag Autocomplete System** - Advanced fuzzy matching with focus preservation:
+  - Continuous typing without clicking (fixed OS-level window activation bug)
+  - Tab key autocomplete (selects first match)
+  - Click selection from dropdown
+  - Enter key selection
+  - ESC key dismissal
+  - Tool window type prevents keyboard event stealing
+  - Custom NoFocusListView rejects activation events
+  - Multi-tag comma-separated input support
+- Fuzzy tag matching (prefix → substring → typo-tolerant)
+- Real-time dropdown updates
+
 **Integration** (`system_tray.py`, `hotkey_manager.py`, `main.py`):
 - System tray with context menu (Show/Edit Snippets/Settings/Quit)
 - Global hotkey registration via pynput (thread-safe Qt signals)
@@ -180,6 +194,18 @@ Lock file stored at `~/.quick-snippet-overlay/app.lock` with current PID. On sta
 3. If stale, remove lock file and continue
 4. If active, show error and exit
 5. Register `atexit` cleanup handler
+
+### Tag Autocomplete Focus Management
+Critical fix for Windows OS-level window activation stealing keyboard events:
+- **Problem**: `Qt.WindowType.Popup` windows activate at OS level, routing keyboard to popup instead of tags_input
+- **Solution**: Use `Qt.WindowType.Tool` (never becomes active window)
+- **Implementation**:
+  - `NoFocusListView` with `Tool | FramelessWindowHint | WindowStaysOnTopHint`
+  - Reject `WindowActivate`, `ActivationChange`, `FocusIn` events
+  - Explicit focus restoration after popup.show() with `processEvents()`
+  - Event filter handles Tab/Enter/ESC keys for selection and dismissal
+- **Result**: User can type continuously without clicking back into field
+- **Ref**: `FOCUS-FIX-BREAKTHROUGH.md` for detailed technical analysis
 
 ---
 

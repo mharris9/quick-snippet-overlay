@@ -38,7 +38,7 @@ def mock_snippet_manager():
     """Mock snippet manager."""
     manager = Mock()
     manager.reload = Mock()
-    manager.snippets = [{'name': 'test1'}, {'name': 'test2'}]
+    manager.snippets = [{"name": "test1"}, {"name": "test2"}]
     return manager
 
 
@@ -46,11 +46,13 @@ def mock_snippet_manager():
 def mock_config_manager():
     """Mock config manager."""
     config = Mock()
-    config.get = Mock(return_value='C:\\Users\\test\\snippets.yaml')
+    config.get = Mock(return_value="C:\\Users\\test\\snippets.yaml")
     return config
 
 
-def test_tray_icon_creation(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_tray_icon_creation(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that system tray icon is created and displayed."""
     from src.system_tray import SystemTray
 
@@ -67,7 +69,9 @@ def test_tray_icon_creation(qapp, mock_overlay_window, mock_snippet_manager, moc
     assert tray.tray_icon.isVisible()
 
 
-def test_tray_menu_creation(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_tray_menu_creation(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that context menu is created with all actions."""
     from src.system_tray import SystemTray
 
@@ -83,14 +87,26 @@ def test_tray_menu_creation(qapp, mock_overlay_window, mock_snippet_manager, moc
     action_texts = [action.text() for action in actions if not action.isSeparator()]
 
     # Verify all menu items exist
-    assert "Open Overlay" in " ".join(action_texts) or any("Open" in text for text in action_texts)
-    assert "Edit Snippets" in " ".join(action_texts) or any("Edit" in text for text in action_texts)
-    assert "Reload Snippets" in " ".join(action_texts) or any("Reload" in text for text in action_texts)
-    assert "About" in " ".join(action_texts) or any("About" in text for text in action_texts)
-    assert "Exit" in " ".join(action_texts) or any("Exit" in text for text in action_texts)
+    assert "Open Overlay" in " ".join(action_texts) or any(
+        "Open" in text for text in action_texts
+    )
+    assert "Edit Snippets" in " ".join(action_texts) or any(
+        "Edit" in text for text in action_texts
+    )
+    assert "Reload Snippets" in " ".join(action_texts) or any(
+        "Reload" in text for text in action_texts
+    )
+    assert "About" in " ".join(action_texts) or any(
+        "About" in text for text in action_texts
+    )
+    assert "Exit" in " ".join(action_texts) or any(
+        "Exit" in text for text in action_texts
+    )
 
 
-def test_menu_action_open_overlay(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_open_overlay(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'Open Overlay' action shows the overlay window."""
     from src.system_tray import SystemTray
 
@@ -104,32 +120,40 @@ def test_menu_action_open_overlay(qapp, mock_overlay_window, mock_snippet_manage
     mock_overlay_window.activateWindow.assert_called_once()
 
 
-def test_menu_action_edit_snippets(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_edit_snippets(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'Edit Snippets' action opens YAML file in default editor."""
     from src.system_tray import SystemTray
 
-    mock_config_manager.get.return_value = 'C:\\Users\\test\\snippets.yaml'
+    mock_config_manager.get.return_value = "C:\\Users\\test\\snippets.yaml"
 
     tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
 
     # Mock os.startfile for Windows
-    with patch('os.startfile') as mock_startfile:
+    with patch("os.startfile") as mock_startfile:
         tray._on_edit_snippets()
 
         # Verify startfile was called with correct path
-        mock_startfile.assert_called_once_with('C:\\Users\\test\\snippets.yaml')
+        mock_startfile.assert_called_once_with("C:\\Users\\test\\snippets.yaml")
 
 
-def test_menu_action_reload_snippets_success(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_reload_snippets_success(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'Reload Snippets' action hot-reloads from file successfully."""
     from src.system_tray import SystemTray
 
     tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
 
     # Mock successful reload
-    mock_snippet_manager.snippets = [{'name': 'test1'}, {'name': 'test2'}, {'name': 'test3'}]
+    mock_snippet_manager.snippets = [
+        {"name": "test1"},
+        {"name": "test2"},
+        {"name": "test3"},
+    ]
 
-    with patch.object(tray.tray_icon, 'showMessage') as mock_show_message:
+    with patch.object(tray.tray_icon, "showMessage") as mock_show_message:
         tray._on_reload_snippets()
 
         # Verify reload was called
@@ -141,7 +165,9 @@ def test_menu_action_reload_snippets_success(qapp, mock_overlay_window, mock_sni
         assert "Snippets Reloaded" in call_args[0][0] or "Loaded" in call_args[0][1]
 
 
-def test_menu_action_reload_snippets_failure(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_reload_snippets_failure(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'Reload Snippets' action handles errors gracefully."""
     from src.system_tray import SystemTray
 
@@ -150,22 +176,28 @@ def test_menu_action_reload_snippets_failure(qapp, mock_overlay_window, mock_sni
     # Mock failed reload
     mock_snippet_manager.reload.side_effect = Exception("File not found")
 
-    with patch.object(tray.tray_icon, 'showMessage') as mock_show_message:
+    with patch.object(tray.tray_icon, "showMessage") as mock_show_message:
         tray._on_reload_snippets()
 
         # Verify error message shown
         mock_show_message.assert_called_once()
         call_args = mock_show_message.call_args
-        assert "Reload Failed" in call_args[0][0] or "Error" in call_args[0][1] or "Failed" in call_args[0][1]
+        assert (
+            "Reload Failed" in call_args[0][0]
+            or "Error" in call_args[0][1]
+            or "Failed" in call_args[0][1]
+        )
 
 
-def test_menu_action_about(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_about(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'About' action shows version information."""
     from src.system_tray import SystemTray
 
     tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
 
-    with patch('PySide6.QtWidgets.QMessageBox.about') as mock_about:
+    with patch("PySide6.QtWidgets.QMessageBox.about") as mock_about:
         tray._on_about()
 
         # Verify about dialog was shown
@@ -178,13 +210,15 @@ def test_menu_action_about(qapp, mock_overlay_window, mock_snippet_manager, mock
         assert "Quick Snippet Overlay" in message
 
 
-def test_menu_action_exit(qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager):
+def test_menu_action_exit(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
     """Test that 'Exit' action triggers graceful shutdown."""
     from src.system_tray import SystemTray
 
     tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
 
-    with patch('PySide6.QtWidgets.QApplication.quit') as mock_quit:
+    with patch("PySide6.QtWidgets.QApplication.quit") as mock_quit:
         tray._on_exit()
 
         # Verify QApplication.quit was called

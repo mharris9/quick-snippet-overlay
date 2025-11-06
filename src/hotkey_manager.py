@@ -44,17 +44,17 @@ class HotkeyManager(QObject):
             Set of pynput Key objects
         """
         keys = set()
-        parts = hotkey_string.lower().split('+')
+        parts = hotkey_string.lower().split("+")
 
         for part in parts:
             part = part.strip()
-            if part == 'ctrl':
+            if part == "ctrl":
                 keys.add(keyboard.Key.ctrl_l)
-            elif part == 'shift':
+            elif part == "shift":
                 keys.add(keyboard.Key.shift)
-            elif part == 'alt':
+            elif part == "alt":
                 keys.add(keyboard.Key.alt_l)
-            elif part == 'space':
+            elif part == "space":
                 keys.add(keyboard.Key.space)
             else:
                 # Single character key
@@ -72,8 +72,7 @@ class HotkeyManager(QObject):
             return
 
         self.listener = keyboard.Listener(
-            on_press=self._on_press,
-            on_release=self._on_release
+            on_press=self._on_press, on_release=self._on_release
         )
         self.listener.start()
         logging.info("Hotkey listener started")
@@ -104,12 +103,22 @@ class HotkeyManager(QObject):
     def _is_hotkey_pressed(self):
         """Check if current key combination matches registered hotkey."""
         # For ctrl+shift+space, check if ctrl (left or right) is pressed
-        has_ctrl = keyboard.Key.ctrl_l in self.current_keys or keyboard.Key.ctrl_r in self.current_keys
-        has_shift = keyboard.Key.shift in self.current_keys or keyboard.Key.shift_r in self.current_keys
+        has_ctrl = (
+            keyboard.Key.ctrl_l in self.current_keys
+            or keyboard.Key.ctrl_r in self.current_keys
+        )
+        has_shift = (
+            keyboard.Key.shift in self.current_keys
+            or keyboard.Key.shift_r in self.current_keys
+        )
         has_space = keyboard.Key.space in self.current_keys
 
         # Check if all required keys are pressed
-        if 'ctrl' in self.hotkey_string.lower() and 'shift' in self.hotkey_string.lower() and 'space' in self.hotkey_string.lower():
+        if (
+            "ctrl" in self.hotkey_string.lower()
+            and "shift" in self.hotkey_string.lower()
+            and "space" in self.hotkey_string.lower()
+        ):
             return has_ctrl and has_shift and has_space
 
         # Generic check for any hotkey combination

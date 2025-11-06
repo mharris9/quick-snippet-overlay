@@ -41,7 +41,7 @@ class SystemTray:
 
     def _setup_icon(self):
         """Set up tray icon and tooltip."""
-        icon_path = os.path.join(os.path.dirname(__file__), 'icon.png')
+        icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
         if os.path.exists(icon_path):
             self.tray_icon.setIcon(QIcon(icon_path))
         else:
@@ -107,8 +107,8 @@ class SystemTray:
 
     def _on_edit_snippets(self):
         """Handle Edit Snippets action - opens YAML file in default editor."""
-        snippets_path = self.config_manager.get('snippet_file')
-        if sys.platform == 'win32':
+        snippets_path = self.config_manager.get("snippet_file")
+        if sys.platform == "win32":
             os.startfile(snippets_path)
         else:
             os.system(f'xdg-open "{snippets_path}"')
@@ -119,7 +119,7 @@ class SystemTray:
         # Import here to avoid Qt initialization order issues
         from src.snippet_editor_dialog import SnippetEditorDialog
 
-        dialog = SnippetEditorDialog()
+        dialog = SnippetEditorDialog(self.snippet_manager)
         if dialog.exec():
             snippet_data = dialog.get_snippet_data()
             if snippet_data:
@@ -129,14 +129,12 @@ class SystemTray:
                         "Snippet Added",
                         f"'{snippet_data['name']}' added successfully!",
                         QSystemTrayIcon.MessageIcon.Information,
-                        2000
+                        2000,
                     )
                     logging.info(f"Added snippet: {snippet_data['name']}")
                 else:
                     QMessageBox.critical(
-                        None,
-                        "Error",
-                        "Failed to save snippet to file."
+                        None, "Error", "Failed to save snippet to file."
                     )
                     logging.error("Failed to save snippet")
 
@@ -148,7 +146,7 @@ class SystemTray:
                 "Snippets Reloaded",
                 f"Loaded {len(self.snippet_manager.snippets)} snippets",
                 QSystemTrayIcon.MessageIcon.Information,
-                2000  # 2 seconds
+                2000,  # 2 seconds
             )
             logging.info("Snippets reloaded from tray menu")
         except Exception as e:
@@ -156,7 +154,7 @@ class SystemTray:
                 "Reload Failed",
                 f"Error: {str(e)}",
                 QSystemTrayIcon.MessageIcon.Critical,
-                3000
+                3000,
             )
             logging.error(f"Failed to reload snippets: {e}")
 
@@ -167,7 +165,7 @@ class SystemTray:
             "About Quick Snippet Overlay",
             "Quick Snippet Overlay v1.0.0\n\n"
             "Hotkey-activated text snippet tool for Windows 11.\n\n"
-            "Press Ctrl+Shift+Space to open overlay."
+            "Press Ctrl+Shift+Space to open overlay.",
         )
 
     def _on_exit(self):

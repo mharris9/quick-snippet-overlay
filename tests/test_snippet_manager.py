@@ -31,6 +31,7 @@ from src.snippet_manager import SnippetManager, Snippet
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def valid_snippets_file():
     """Path to valid test snippets YAML file."""
@@ -64,6 +65,7 @@ def manager_with_valid_file(valid_snippets_file):
 # ============================================================================
 # Test Case 1: Load Valid Snippets
 # ============================================================================
+
 
 def test_load_valid_snippets(manager_with_valid_file):
     """
@@ -106,6 +108,7 @@ def test_load_valid_snippets(manager_with_valid_file):
 # Test Case 2: Validate Snippet Schema
 # ============================================================================
 
+
 def test_validate_snippet_schema():
     """
     Test snippet validation logic for required fields.
@@ -124,7 +127,7 @@ def test_validate_snippet_schema():
         content="Test Content",
         tags=["test"],
         created=date.today(),
-        modified=date.today()
+        modified=date.today(),
     )
     assert valid_snippet.validate() is True
 
@@ -136,7 +139,7 @@ def test_validate_snippet_schema():
         content="Test Content",
         tags=["test"],
         created=date.today(),
-        modified=date.today()
+        modified=date.today(),
     )
     assert invalid_snippet_no_id.validate() is False
 
@@ -148,7 +151,7 @@ def test_validate_snippet_schema():
         content="Test Content",
         tags=["test"],
         created=date.today(),
-        modified=date.today()
+        modified=date.today(),
     )
     assert invalid_snippet_no_name.validate() is False
 
@@ -160,7 +163,7 @@ def test_validate_snippet_schema():
         content="",
         tags=["test"],
         created=date.today(),
-        modified=date.today()
+        modified=date.today(),
     )
     assert invalid_snippet_no_content.validate() is False
 
@@ -168,6 +171,7 @@ def test_validate_snippet_schema():
 # ============================================================================
 # Test Case 3: Load Malformed YAML
 # ============================================================================
+
 
 def test_load_malformed_yaml(temp_snippets_file):
     """
@@ -227,6 +231,7 @@ snippets:
 # Test Case 4: Create Sample File When Missing
 # ============================================================================
 
+
 def test_load_missing_file_creates_sample(temp_snippets_file):
     """
     Test sample file creation when snippets.yaml doesn't exist.
@@ -268,6 +273,7 @@ def test_load_missing_file_creates_sample(temp_snippets_file):
 # ============================================================================
 # Test Case 5: File Watcher with Debounce
 # ============================================================================
+
 
 def test_file_watcher_reload_with_debounce(temp_snippets_file):
     """
@@ -328,7 +334,9 @@ snippets:
 
         # Should have triggered only 1-2 reloads due to debounce
         # (not 3, which would happen without debounce)
-        assert reload_count[0] <= 2, f"Debounce failed: {reload_count[0]} reloads instead of ≤2"
+        assert (
+            reload_count[0] <= 2
+        ), f"Debounce failed: {reload_count[0]} reloads instead of ≤2"
 
         # Verify latest snippets are loaded
         current_snippets = manager.snippets
@@ -343,6 +351,7 @@ snippets:
 # ============================================================================
 # Test Case 6: Backup Creation
 # ============================================================================
+
 
 def test_backup_creation(temp_snippets_file):
     """
@@ -383,6 +392,7 @@ snippets:
 # ============================================================================
 # Test Case 7: Backup Rotation (Delete Oldest)
 # ============================================================================
+
 
 def test_backup_rotation_deletes_oldest(temp_snippets_file):
     """
@@ -446,6 +456,7 @@ snippets:
 # Test Case 8: Duplicate Snippet IDs Auto-Fix
 # ============================================================================
 
+
 def test_duplicate_snippet_ids_auto_fix(temp_snippets_file, caplog):
     """
     Test automatic fixing of duplicate snippet IDs.
@@ -502,6 +513,7 @@ snippets:
 # Test Case 9: Large Snippet Library Performance
 # ============================================================================
 
+
 def test_large_snippet_library_performance(temp_snippets_file):
     """
     Test performance with large snippet library.
@@ -545,6 +557,7 @@ def test_large_snippet_library_performance(temp_snippets_file):
 # Test Case 10: File Watcher Handles Locked File
 # ============================================================================
 
+
 def test_file_watcher_handles_locked_file(temp_snippets_file, caplog):
     """
     Test file watcher behavior when file is locked.
@@ -574,7 +587,7 @@ snippets:
     assert snippets[0].id == "cached-snippet"
 
     # Mock file read to simulate locked file
-    with patch('builtins.open', side_effect=PermissionError("File is locked")):
+    with patch("builtins.open", side_effect=PermissionError("File is locked")):
         with caplog.at_level("WARNING"):
             # Attempt to load should use cached version
             cached_snippets = manager.load()
@@ -590,6 +603,7 @@ snippets:
 # ============================================================================
 # Test Case 11: Validate Snippet ID Uniqueness
 # ============================================================================
+
 
 def test_validate_snippet_id_uniqueness(temp_snippets_file):
     """
@@ -652,3 +666,197 @@ snippets:
 
     # Verify count
     assert len(snippets) == 4
+
+
+# ============================================================================
+# Test Case 12: Get All Tags - Empty
+# ============================================================================
+
+
+def test_get_all_tags_empty(temp_snippets_file):
+    """
+    Test get_all_tags() with no snippets.
+
+    Verifies:
+    - Returns empty list when no snippets loaded
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Don't load any snippets (file doesn't exist yet)
+    # Just call get_all_tags() directly
+    tags = manager.get_all_tags()
+
+    # Should return empty list
+    assert tags == []
+    assert isinstance(tags, list)
+
+
+# ============================================================================
+# Test Case 13: Get All Tags - Deduplicates
+# ============================================================================
+
+
+def test_get_all_tags_deduplicates(temp_snippets_file):
+    """
+    Test get_all_tags() deduplicates tags.
+
+    Verifies:
+    - Multiple snippets with same tag return tag only once
+    - Duplicate tags within same snippet are deduplicated
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with duplicate tags
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [python, code]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [python, testing]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-3
+    name: Snippet 3
+    description: Third snippet
+    content: echo "test 3"
+    tags: [javascript, testing]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    tags = manager.get_all_tags()
+
+    # Should deduplicate "python" and "testing"
+    assert len(tags) == 4  # code, javascript, python, testing
+    assert "python" in tags
+    assert "testing" in tags
+    assert "code" in tags
+    assert "javascript" in tags
+
+    # Verify no duplicates
+    assert len(tags) == len(set(tags))
+
+
+# ============================================================================
+# Test Case 14: Get All Tags - Sorted
+# ============================================================================
+
+
+def test_get_all_tags_sorted(temp_snippets_file):
+    """
+    Test get_all_tags() returns alphabetically sorted tags.
+
+    Verifies:
+    - Tags are returned in alphabetical order
+    - Sorting is case-insensitive (already normalized)
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with tags in random order
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [zebra, apple, mango, banana]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    tags = manager.get_all_tags()
+
+    # Should be sorted alphabetically
+    assert tags == ["apple", "banana", "mango", "zebra"]
+
+
+# ============================================================================
+# Test Case 15: Get All Tags - Multiple Snippets
+# ============================================================================
+
+
+def test_get_all_tags_from_multiple_snippets(temp_snippets_file):
+    """
+    Test get_all_tags() returns union of tags from multiple snippets.
+
+    Verifies:
+    - All tags from all snippets are included
+    - Tags are deduplicated and sorted
+    - Handles snippets with no tags
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create file with 3+ snippets with overlapping tags
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [python, django, backend]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [python, flask, backend]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-3
+    name: Snippet 3
+    description: Third snippet
+    content: echo "test 3"
+    tags: [javascript, frontend, react]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-4
+    name: Snippet 4
+    description: Fourth snippet with no tags
+    content: echo "test 4"
+    tags: []
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    tags = manager.get_all_tags()
+
+    # Should have all unique tags from all snippets
+    expected_tags = [
+        "backend",
+        "django",
+        "flask",
+        "frontend",
+        "javascript",
+        "python",
+        "react",
+    ]
+    assert tags == expected_tags
+
+    # Verify all expected tags present
+    assert "python" in tags  # From snippet 1 and 2
+    assert "backend" in tags  # From snippet 1 and 2
+    assert "django" in tags  # From snippet 1 only
+    assert "flask" in tags  # From snippet 2 only
+    assert "javascript" in tags  # From snippet 3 only
+    assert "react" in tags  # From snippet 3 only
+
+    # Verify count (6 unique tags total, snippet 4 has no tags)
+    assert len(tags) == 7

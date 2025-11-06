@@ -46,36 +46,36 @@ class ConfigManager:
 
     # Default configuration values (all 11 settings)
     DEFAULT_CONFIG = {
-        'hotkey': 'ctrl+shift+space',
-        'snippet_file': str(Path.home() / 'snippets' / 'snippets.yaml'),
-        'max_results': 10,
-        'overlay_opacity': 0.95,
-        'theme': 'dark',
-        'fuzzy_threshold': 60,
-        'search_debounce_ms': 150,
-        'auto_reload': True,
-        'run_on_startup': False,
-        'overlay_width': 600,
-        'overlay_height': 400
+        "hotkey": "ctrl+shift+space",
+        "snippet_file": str(Path.home() / "snippets" / "snippets.yaml"),
+        "max_results": 10,
+        "overlay_opacity": 0.95,
+        "theme": "dark",
+        "fuzzy_threshold": 60,
+        "search_debounce_ms": 150,
+        "auto_reload": True,
+        "run_on_startup": False,
+        "overlay_width": 600,
+        "overlay_height": 400,
     }
 
     # Validation ranges for numeric settings
     VALIDATION_RANGES = {
-        'max_results': (5, 20),
-        'fuzzy_threshold': (40, 80),
-        'search_debounce_ms': (50, 500),
-        'overlay_opacity': (0.7, 1.0),
-        'overlay_width': (400, 1200),
-        'overlay_height': (300, 800)
+        "max_results": (5, 20),
+        "fuzzy_threshold": (40, 80),
+        "search_debounce_ms": (50, 500),
+        "overlay_opacity": (0.7, 1.0),
+        "overlay_width": (400, 1200),
+        "overlay_height": (300, 800),
     }
 
     # Valid theme options
-    VALID_THEMES = {'dark', 'light', 'system'}
+    VALID_THEMES = {"dark", "light", "system"}
 
     # Hotkey validation pattern
     HOTKEY_PATTERN = re.compile(
-        r'^(ctrl|shift|alt)(\+(ctrl|shift|alt))*\+([a-z0-9]+|space|enter|f\d{1,2})$',
-        re.IGNORECASE
+        r"^(ctrl|shift|alt)(\+(ctrl|shift|alt))*\+([a-z0-9]+|space|enter|f\d{1,2})$",
+        re.IGNORECASE,
     )
 
     def __init__(self, config_path: Optional[str] = None):
@@ -89,13 +89,13 @@ class ConfigManager:
         """
         if config_path is None:
             # Determine default config path based on platform
-            if Path.home().joinpath('AppData').exists():  # Windows
-                config_dir = Path.home() / 'AppData' / 'Local' / 'quick-snippet-overlay'
+            if Path.home().joinpath("AppData").exists():  # Windows
+                config_dir = Path.home() / "AppData" / "Local" / "quick-snippet-overlay"
             else:  # Linux/Mac
-                config_dir = Path.home() / '.config' / 'quick-snippet-overlay'
+                config_dir = Path.home() / ".config" / "quick-snippet-overlay"
 
             config_dir.mkdir(parents=True, exist_ok=True)
-            self.config_path = config_dir / 'config.yaml'
+            self.config_path = config_dir / "config.yaml"
         else:
             self.config_path = Path(config_path)
 
@@ -115,11 +115,13 @@ class ConfigManager:
             - Partial config (merges with defaults)
         """
         if not self.config_path.exists():
-            logger.info(f"Config file not found at {self.config_path}, creating default")
+            logger.info(
+                f"Config file not found at {self.config_path}, creating default"
+            )
             return self._create_default_config()
 
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 loaded_config = yaml.safe_load(f) or {}
 
             # Merge with defaults (defaults provide missing values)
@@ -147,8 +149,10 @@ class ConfigManager:
 
         # Write default config to file
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(self.DEFAULT_CONFIG, f, default_flow_style=False, sort_keys=False)
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    self.DEFAULT_CONFIG, f, default_flow_style=False, sort_keys=False
+                )
             logger.info(f"Created default config at {self.config_path}")
         except Exception as e:
             logger.error(f"Failed to create default config: {e}")
@@ -211,13 +215,15 @@ class ConfigManager:
 
             # Write to temporary file first (atomic write pattern)
             with tempfile.NamedTemporaryFile(
-                mode='w',
-                encoding='utf-8',
+                mode="w",
+                encoding="utf-8",
                 dir=self.config_path.parent,
                 delete=False,
-                suffix='.yaml'
+                suffix=".yaml",
             ) as tmp_file:
-                yaml.dump(self.config, tmp_file, default_flow_style=False, sort_keys=False)
+                yaml.dump(
+                    self.config, tmp_file, default_flow_style=False, sort_keys=False
+                )
                 tmp_path = Path(tmp_file.name)
 
             # Atomic rename (replaces existing file)
@@ -239,24 +245,32 @@ class ConfigManager:
         errors = []
 
         # Validate hotkey format
-        hotkey_valid, hotkey_errors = self._validate_hotkey(self.config.get('hotkey', ''))
+        hotkey_valid, hotkey_errors = self._validate_hotkey(
+            self.config.get("hotkey", "")
+        )
         errors.extend(hotkey_errors)
 
         # Validate file path
-        path_valid, path_errors = self._validate_file_path(self.config.get('snippet_file', ''))
+        path_valid, path_errors = self._validate_file_path(
+            self.config.get("snippet_file", "")
+        )
         errors.extend(path_errors)
 
         # Validate numeric ranges
         for field, (min_val, max_val) in self.VALIDATION_RANGES.items():
             value = self.config.get(field)
             if value is not None:
-                range_valid, range_errors = self._validate_range(field, value, min_val, max_val)
+                range_valid, range_errors = self._validate_range(
+                    field, value, min_val, max_val
+                )
                 errors.extend(range_errors)
 
         # Validate theme
-        theme = self.config.get('theme', '')
+        theme = self.config.get("theme", "")
         if theme not in self.VALID_THEMES:
-            errors.append(f"Invalid theme '{theme}', must be one of: {', '.join(self.VALID_THEMES)}")
+            errors.append(
+                f"Invalid theme '{theme}', must be one of: {', '.join(self.VALID_THEMES)}"
+            )
 
         return (len(errors) == 0, errors)
 
@@ -293,7 +307,7 @@ class ConfigManager:
             return (False, errors)
 
         # Check for duplicate modifiers
-        parts = hotkey.lower().split('+')
+        parts = hotkey.lower().split("+")
         modifiers = parts[:-1]  # All parts except the last (key)
 
         if len(modifiers) != len(set(modifiers)):
@@ -328,11 +342,7 @@ class ConfigManager:
         return (True, [])
 
     def _validate_range(
-        self,
-        field: str,
-        value: Any,
-        min_val: float,
-        max_val: float
+        self, field: str, value: Any, min_val: float, max_val: float
     ) -> tuple[bool, list[str]]:
         """
         Validate numeric value is within allowed range.
@@ -355,9 +365,7 @@ class ConfigManager:
 
         # Check range
         if value < min_val or value > max_val:
-            errors.append(
-                f"{field} value {value} out of range [{min_val}, {max_val}]"
-            )
+            errors.append(f"{field} value {value} out of range [{min_val}, {max_val}]")
             return (False, errors)
 
         return (True, [])

@@ -27,12 +27,11 @@ from src.variable_handler import VariableHandler
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 # Lock file path
-LOCK_FILE = os.path.abspath(os.path.expanduser('~/.quick-snippet-overlay/app.lock'))
+LOCK_FILE = os.path.abspath(os.path.expanduser("~/.quick-snippet-overlay/app.lock"))
 
 
 def ensure_single_instance():
@@ -40,7 +39,7 @@ def ensure_single_instance():
     if os.path.exists(LOCK_FILE):
         # Check if process still running
         try:
-            with open(LOCK_FILE, 'r') as f:
+            with open(LOCK_FILE, "r") as f:
                 pid = int(f.read().strip())
 
             # Check if PID is still running
@@ -49,7 +48,7 @@ def ensure_single_instance():
                     None,
                     "Already Running",
                     "Quick Snippet Overlay is already running.\n"
-                    "Check your system tray."
+                    "Check your system tray.",
                 )
                 logging.error(f"Another instance already running (PID: {pid})")
                 sys.exit(1)
@@ -63,7 +62,7 @@ def ensure_single_instance():
 
     # Create lock file with current PID
     os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
-    with open(LOCK_FILE, 'w') as f:
+    with open(LOCK_FILE, "w") as f:
         f.write(str(os.getpid()))
 
     logging.info(f"Lock file created: {LOCK_FILE}")
@@ -71,8 +70,9 @@ def ensure_single_instance():
 
 def is_process_running(pid):
     """Check if a process with given PID is running."""
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         import ctypes
+
         kernel32 = ctypes.windll.kernel32
         PROCESS_QUERY_INFORMATION = 0x0400
         handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid)
@@ -111,19 +111,21 @@ def main():
 
         # Initialize components
         config_manager = ConfigManager()
-        snippet_manager = SnippetManager(config_manager.get('snippet_file'))
+        snippet_manager = SnippetManager(config_manager.get("snippet_file"))
         snippets = snippet_manager.load()
         search_engine = SearchEngine(snippets)
         variable_handler = VariableHandler()
 
         # Create overlay window (hidden initially)
-        overlay_window = OverlayWindow(config_manager, snippet_manager, search_engine, variable_handler)
+        overlay_window = OverlayWindow(
+            config_manager, snippet_manager, search_engine, variable_handler
+        )
 
         # Create system tray
         system_tray = SystemTray(overlay_window, snippet_manager, config_manager)
 
         # Create hotkey manager
-        hotkey_string = config_manager.get('hotkey', 'ctrl+shift+space')
+        hotkey_string = config_manager.get("hotkey", "ctrl+shift+space")
         hotkey_manager = HotkeyManager(hotkey_string)
 
         # Connect hotkey to overlay toggle
@@ -163,12 +165,10 @@ def main():
     except Exception as e:
         logging.error(f"Fatal error during startup: {e}", exc_info=True)
         QMessageBox.critical(
-            None,
-            "Startup Error",
-            f"Failed to start Quick Snippet Overlay:\n{str(e)}"
+            None, "Startup Error", f"Failed to start Quick Snippet Overlay:\n{str(e)}"
         )
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

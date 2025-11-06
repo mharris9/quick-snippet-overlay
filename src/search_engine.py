@@ -93,10 +93,7 @@ class SearchEngine:
 
             # Only include results above threshold
             if score >= threshold:
-                results.append({
-                    "snippet": snippet,
-                    "score": score
-                })
+                results.append({"snippet": snippet, "score": score})
 
         # Sort by score descending
         results.sort(key=lambda x: x["score"], reverse=True)
@@ -122,19 +119,13 @@ class SearchEngine:
 
         # Score name field (weight: 3x)
         if snippet.name:
-            name_score = fuzz.partial_ratio(
-                query,
-                snippet.name.lower(),
-                score_cutoff=0
-            )
+            name_score = fuzz.partial_ratio(query, snippet.name.lower(), score_cutoff=0)
             scores.append(name_score * WEIGHT_NAME)
 
         # Score description field (weight: 2x)
         if snippet.description:
             desc_score = fuzz.partial_ratio(
-                query,
-                snippet.description.lower(),
-                score_cutoff=0
+                query, snippet.description.lower(), score_cutoff=0
             )
             scores.append(desc_score * WEIGHT_DESCRIPTION)
 
@@ -152,9 +143,7 @@ class SearchEngine:
         # Score content field (weight: 1x)
         if snippet.content:
             content_score = fuzz.partial_ratio(
-                query,
-                snippet.content.lower(),
-                score_cutoff=0
+                query, snippet.content.lower(), score_cutoff=0
             )
             scores.append(content_score * WEIGHT_CONTENT)
 
