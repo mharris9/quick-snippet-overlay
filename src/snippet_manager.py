@@ -417,6 +417,9 @@ snippets:
             True if successful, False otherwise
         """
         try:
+            # Create backup before modification
+            self.create_backup()
+
             # Load current YAML data
             with open(self.file_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
@@ -457,6 +460,69 @@ snippets:
             logger.error(f"Failed to add snippet: {e}")
             return False
 
+    def update_snippet(self, snippet_id: str, snippet_data: dict) -> bool:
+        """
+        Update an existing snippet in the YAML file.
+
+        Args:
+            snippet_id: ID of the snippet to update
+            snippet_data: Dictionary with updated snippet fields
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Create backup before modification
+            self.create_backup()
+
+            # Load current YAML data
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            if not data or "snippets" not in data:
+                logger.error("No snippets found in file")
+                return False
+
+            # Find and update the snippet
+            snippets = data["snippets"]
+            found = False
+
+            for i, snippet in enumerate(snippets):
+                if snippet.get("id") == snippet_id:
+                    # Preserve the original ID and created date
+                    snippet_data["id"] = snippet_id
+                    snippet_data["created"] = snippet.get("created", snippet_data.get("created"))
+
+                    # Update modified timestamp
+                    from datetime import datetime
+                    snippet_data["modified"] = datetime.now().strftime("%Y-%m-%d")
+
+                    # Replace the snippet
+                    snippets[i] = snippet_data
+                    found = True
+                    break
+
+            if not found:
+                logger.error(f"Snippet with ID {snippet_id} not found")
+                return False
+
+            # Write back to file
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    data,
+                    f,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+
+            logger.info(f"Updated snippet: {snippet_data['name']} (ID: {snippet_id})")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update snippet: {e}")
+            return False
+
     def get_all_tags(self) -> List[str]:
         """
         Get all unique tags from loaded snippets.
@@ -488,6 +554,9 @@ snippets:
         for snippet_id in snippet_ids:
             if snippet_id not in existing_ids:
                 raise ValueError(f"Snippet with ID '{snippet_id}' not found")
+
+        # Create backup before deletion
+        self.create_backup()
 
         # Filter out snippets to delete
         remaining_snippets = [s for s in current_snippets if s.id not in snippet_ids]
@@ -552,3 +621,132 @@ snippets:
             List of all Snippet objects
         """
         return self.load()
+
+    def create_manual_backup(self) -> Optional[str]:
+        """
+        Create a manual backup with timestamp in filename.
+
+        Returns:
+            Path to created backup file, or None if failed
+        """
+        try:
+            from datetime import datetime
+
+            if not self.file_path.exists():
+                logger.warning("Cannot create backup: snippets file does not exist")
+                return None
+
+            # Create timestamped backup filename
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup_path = Path(f"{self.file_path}.backup.{timestamp}")
+
+            # Copy current file to backup
+            shutil.copy2(self.file_path, backup_path)
+            logger.info(f"Created manual backup: {backup_path}")
+
+            return str(backup_path)
+
+        except Exception as e:
+            logger.error(f"Failed to create manual backup: {e}")
+            raise
+
+    def list_backups(self) -> List[dict]:
+        """
+        List all available backup files (both rotation and manual backups).
+
+        Returns:
+            List of dicts with 'path', 'name', and 'timestamp' keys, sorted newest first
+        """
+        backups = []
+
+        # Find all backup files in the snippets directory
+        backup_pattern = f"{self.file_path}.backup.*"
+        parent_dir = self.file_path.parent
+
+        for backup_file in parent_dir.glob(f"{self.file_path.name}.backup.*"):
+            if not backup_file.is_file():
+                continue
+
+            # Get file modification time
+            mtime = backup_file.stat().st_mtime
+
+            # Determine backup type and name
+            suffix = backup_file.name.replace(f"{self.file_path.name}.backup.", "")
+
+            if suffix.isdigit():
+                # Rotation backup (e.g., .backup.001)
+                name = f"Rotation Backup #{suffix}"
+            else:
+                # Manual backup with timestamp (e.g., .backup.20251107-143022)
+                name = f"Manual Backup - {suffix}"
+
+            backups.append({
+                "path": str(backup_file),
+                "name": name,
+                "timestamp": mtime,
+            })
+
+        # Sort by timestamp (newest first)
+        backups.sort(key=lambda x: x["timestamp"], reverse=True)
+
+        return backups
+
+    def restore_from_backup(self, backup_path: str) -> None:
+        """
+        Restore snippets from a backup file.
+
+        Args:
+            backup_path: Path to the backup file to restore from
+
+        Raises:
+            ValueError: If backup file doesn't exist
+            IOError: If restore operation fails
+        """
+        backup_file = Path(backup_path)
+
+        if not backup_file.exists():
+            raise ValueError(f"Backup file not found: {backup_path}")
+
+        try:
+            # Copy backup to current file
+            shutil.copy2(backup_file, self.file_path)
+            logger.info(f"Restored snippets from backup: {backup_path}")
+
+            # Reload snippets
+            self.load()
+
+        except Exception as e:
+            logger.error(f"Failed to restore from backup: {e}")
+            raise IOError(f"Failed to restore from backup: {e}")
+
+    def get_sorted_snippets(self, usage_tracker) -> List[Snippet]:
+        """
+        Get snippets sorted by usage frequency and alphabetically.
+
+        Sorting logic:
+        - Primary sort: Usage frequency (descending - most used first)
+        - Secondary sort: Alphabetical by name (ascending - A to Z)
+        - Snippets with 0 usage appear at bottom, sorted alphabetically
+
+        Args:
+            usage_tracker: UsageTracker instance with usage statistics
+
+        Returns:
+            List of Snippet objects sorted by frequency then alphabetically
+        """
+        if not self.snippets:
+            return []
+
+        # Create sort key function
+        def sort_key(snippet: Snippet):
+            # Get usage count (default to 0 if not tracked)
+            usage_count = usage_tracker.get_count(snippet.id)
+
+            # Return tuple for sorting:
+            # - Negative usage count (for descending order)
+            # - Lowercase name (for case-insensitive alphabetical order)
+            return (-usage_count, snippet.name.lower())
+
+        # Sort and return
+        sorted_snippets = sorted(self.snippets, key=sort_key)
+        return sorted_snippets

@@ -1,0 +1,149 @@
+version: 1
+snippets:
+  # 1. PowerShell file operations
+  - id: ps-list-files
+    name: List files by size
+    description: PowerShell command to list files sorted by size
+    content: |
+      Get-ChildItem -File | Sort-Object Length -Descending | Select-Object -First 20
+    tags: [powershell, files, disk]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 2. Flask with similar name (test ranking)
+  - id: flask-run
+    name: Flask development server
+    description: Start Flask app with custom port
+    content: "flask --app {{app_name:app}} run --port {{port:5000}}"
+    tags: [python, flask, web]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 3. Flask launcher (similar to #2)
+  - id: flask-launcher
+    name: Launch Flask application
+    description: Run Flask web server with debug mode
+    content: "python -m flask --app {{app}} run --debug"
+    tags: [python, flask, development]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 4. Git command
+  - id: git-undo
+    name: Undo last commit
+    description: Git command to undo last commit but keep changes
+    content: "git reset --soft HEAD~1"
+    tags: [git, version-control]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 5. LLM prompt
+  - id: llm-code-review
+    name: Code review prompt
+    description: Request detailed code review from LLM
+    content: |
+      Please review the following code for:
+      - Performance issues
+      - Security vulnerabilities
+      - Code style and readability
+      - Edge cases and error handling
+    tags: [llm, code-review, ai]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 6. Windows network (special characters)
+  - id: win-reset-network
+    name: Reset network adapter
+    description: Reset all network settings (requires admin)
+    content: |
+      ipconfig /release
+      ipconfig /renew
+      netsh winsock reset catalog
+      netsh int ip reset reset.log
+    tags: [windows, network, admin]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 7. Python with typo potential (pythno -> python)
+  - id: python-venv
+    name: Create Python virtual environment
+    description: Create and activate a Python venv
+    content: |
+      python -m venv .venv
+      .venv\Scripts\activate
+    tags: [python, venv, environment]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 8. Docker command
+  - id: docker-compose
+    name: Docker Compose up
+    description: Start Docker containers with compose
+    content: "docker-compose up -d"
+    tags: [docker, containers, devops]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 9. Unicode content (test unicode handling)
+  - id: unicode-test
+    name: Unicode snippet 🚀
+    description: Snippet with unicode characters éàü
+    content: "echo 'Hello 世界! 🎉'"
+    tags: [test, unicode, 中文]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 10. Overlapping tags with #1
+  - id: ps-process
+    name: List running processes
+    description: PowerShell command to list processes by CPU
+    content: |
+      Get-Process | Sort-Object CPU -Descending | Select-Object -First 20
+    tags: [powershell, process, performance]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 11. Similar to #5 (test ranking)
+  - id: llm-summarize
+    name: Summarization prompt
+    description: Request text summarization from AI
+    content: "Please summarize the following text in 2-3 bullet points."
+    tags: [llm, summarization, ai]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 12. Special characters in content
+  - id: regex-pattern
+    name: Email validation regex
+    description: Regular expression pattern for email validation
+    content: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    tags: [regex, validation, pattern]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 13. PowerShell with overlapping tags
+  - id: ps-find-file
+    name: Find file by pattern
+    description: PowerShell search for files matching pattern
+    content: "Get-ChildItem -Path {{path}} -Filter {{pattern:*.txt}} -Recurse"
+    tags: [powershell, files, search]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 14. Bash/Linux command (cross-platform consideration)
+  - id: bash-disk-usage
+    name: Check disk usage
+    description: Linux command to check disk space
+    content: "df -h | grep -v tmpfs"
+    tags: [bash, linux, disk, system]
+    created: 2025-11-04
+    modified: 2025-11-04
+
+  # 15. Kubernetes command
+  - id: kubectl-pods
+    name: List Kubernetes pods
+    description: Get all pods in all namespaces
+    content: "kubectl get pods --all-namespaces"
+    tags: [kubernetes, k8s, devops, containers]
+    created: 2025-11-04
+    modified: 2025-11-04

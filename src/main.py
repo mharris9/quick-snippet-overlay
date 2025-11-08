@@ -24,48 +24,99 @@ from src.overlay_window import OverlayWindow
 from src.system_tray import SystemTray
 from src.hotkey_manager import HotkeyManager
 from src.variable_handler import VariableHandler
+from src.usage_tracker import UsageTracker
 
-# Configure logging
+# Configure logging for production (WARNING level - only show warnings and errors)
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.WARNING, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+logger = logging.getLogger(__name__)
 
 # Lock file path
 LOCK_FILE = os.path.abspath(os.path.expanduser("~/.quick-snippet-overlay/app.lock"))
 
 
+def kill_existing_instances():
+    """Kill all existing instances of the application using lock file."""
+    killed_count = 0
+
+    # Check if lock file exists
+    if not os.path.exists(LOCK_FILE):
+        return  # No existing instance
+
+    try:
+        # Read PID from lock file
+        with open(LOCK_FILE, "r") as f:
+            pid = int(f.read().strip())
+
+        logger.info(f"Found existing instance with PID: {pid}")
+
+        # Try to kill the process
+        if sys.platform == "win32":
+            # Windows: Use taskkill command
+            import subprocess
+            try:
+                # Force kill the process tree
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid), "/T"],
+                    capture_output=True,
+                    timeout=5
+                )
+                logger.warning(f"Killed existing instance (PID: {pid})")
+                killed_count = 1
+                import time
+                time.sleep(1)  # Wait for process to fully terminate
+            except subprocess.TimeoutExpired:
+                logger.error(f"Timeout killing process {pid}")
+            except Exception as e:
+                logger.error(f"Error using taskkill: {e}")
+        else:
+            # Unix-like: Use os.kill
+            try:
+                os.kill(pid, 9)  # SIGKILL
+                logger.warning(f"Killed existing instance (PID: {pid})")
+                killed_count = 1
+                import time
+                time.sleep(0.5)
+            except ProcessLookupError:
+                # Process already dead
+                logger.info(f"Process {pid} already terminated")
+            except Exception as e:
+                logger.error(f"Error killing process: {e}")
+
+    except FileNotFoundError:
+        # Lock file disappeared, already handled
+        pass
+    except ValueError:
+        # Invalid PID in lock file
+        logger.error("Invalid PID in lock file")
+    except Exception as e:
+        logger.error(f"Error reading lock file: {e}")
+
+    # Always remove the lock file
+    if os.path.exists(LOCK_FILE):
+        try:
+            os.remove(LOCK_FILE)
+            logger.info("Removed lock file")
+        except Exception as e:
+            logger.error(f"Error removing lock file: {e}")
+
+    if killed_count > 0:
+        logger.info(f"Killed {killed_count} existing instance(s)")
+
+
 def ensure_single_instance():
     """Ensure only one instance of application is running."""
-    if os.path.exists(LOCK_FILE):
-        # Check if process still running
-        try:
-            with open(LOCK_FILE, "r") as f:
-                pid = int(f.read().strip())
-
-            # Check if PID is still running
-            if is_process_running(pid):
-                QMessageBox.critical(
-                    None,
-                    "Already Running",
-                    "Quick Snippet Overlay is already running.\n"
-                    "Check your system tray.",
-                )
-                logging.error(f"Another instance already running (PID: {pid})")
-                sys.exit(1)
-            else:
-                # Stale lock file, remove it
-                logging.warning(f"Removing stale lock file (dead PID: {pid})")
-                os.remove(LOCK_FILE)
-        except Exception as e:
-            logging.error(f"Error checking lock file: {e}")
-            # Continue anyway
+    # First, kill any existing instances (also removes lock file)
+    kill_existing_instances()
 
     # Create lock file with current PID
     os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
     with open(LOCK_FILE, "w") as f:
         f.write(str(os.getpid()))
 
-    logging.info(f"Lock file created: {LOCK_FILE}")
+    logger.info(f"Created lock file with PID: {os.getpid()}")
 
 
 def is_process_running(pid):
@@ -93,7 +144,6 @@ def cleanup_lock_file():
     """Remove lock file on exit."""
     if os.path.exists(LOCK_FILE):
         os.remove(LOCK_FILE)
-        logging.info("Lock file removed")
 
 
 def main():
@@ -116,9 +166,20 @@ def main():
         search_engine = SearchEngine(snippets)
         variable_handler = VariableHandler()
 
+        # Initialize usage tracker
+        usage_stats_file = os.path.join(
+            os.path.dirname(config_manager.get("snippet_file")), "usage_stats.yaml"
+        )
+        usage_tracker = UsageTracker(usage_stats_file)
+
+        # Cleanup orphaned usage stats (remove stats for deleted snippets)
+        valid_snippet_ids = [s.id for s in snippets]
+        usage_tracker.cleanup_orphaned(valid_snippet_ids)
+        usage_tracker.save()
+
         # Create overlay window (hidden initially)
         overlay_window = OverlayWindow(
-            config_manager, snippet_manager, search_engine, variable_handler
+            config_manager, snippet_manager, search_engine, variable_handler, usage_tracker
         )
 
         # Create system tray
@@ -130,11 +191,24 @@ def main():
 
         # Connect hotkey to overlay toggle
         def toggle_overlay():
+            # Check if a dialog is currently open (editing/deleting)
+            if overlay_window.dialog_open:
+                # Show notification that editing is in progress
+                from PySide6.QtWidgets import QSystemTrayIcon
+                if system_tray and system_tray.tray_icon:
+                    system_tray.tray_icon.showMessage(
+                        "Quick Snippet Overlay",
+                        "Please finish editing before using the overlay.",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000  # Show for 2 seconds
+                    )
+                return
+
+            # Normal toggle behavior
             if overlay_window.isVisible():
-                overlay_window.hide()
+                overlay_window.hide_overlay()
             else:
-                overlay_window.show()
-                overlay_window.activateWindow()
+                overlay_window.show_overlay()
 
         hotkey_manager.hotkey_pressed.connect(toggle_overlay)
 
@@ -144,12 +218,9 @@ def main():
         # Set up file watcher for auto-reload
         def on_snippets_changed():
             """Callback when snippets file changes."""
-            logging.info("Snippets file changed, reloading...")
             overlay_window.reload_snippets()
 
         file_observer = snippet_manager.watch_file(on_snippets_changed)
-
-        logging.info("Quick Snippet Overlay started successfully")
 
         # Run application event loop
         exit_code = app.exec()
@@ -163,7 +234,7 @@ def main():
         sys.exit(exit_code)
 
     except Exception as e:
-        logging.error(f"Fatal error during startup: {e}", exc_info=True)
+        logger.error(f"Fatal error during startup: {e}", exc_info=True)
         QMessageBox.critical(
             None, "Startup Error", f"Failed to start Quick Snippet Overlay:\n{str(e)}"
         )

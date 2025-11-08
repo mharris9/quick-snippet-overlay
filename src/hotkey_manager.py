@@ -12,6 +12,8 @@ from pynput import keyboard
 from PySide6.QtCore import QObject, Signal
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class HotkeyManager(QObject):
     """Global hotkey registration and monitoring."""
@@ -30,8 +32,6 @@ class HotkeyManager(QObject):
         self.hotkey_combination = self._parse_hotkey(hotkey_string)
         self.current_keys = set()
         self.listener = None
-
-        logging.info(f"HotkeyManager initialized with hotkey: {hotkey_string}")
 
     def _parse_hotkey(self, hotkey_string):
         """
@@ -61,28 +61,26 @@ class HotkeyManager(QObject):
                 try:
                     keys.add(keyboard.KeyCode.from_char(part))
                 except:
-                    logging.warning(f"Could not parse key: {part}")
+                    logger.warning(f"Could not parse key: {part}")
 
         return keys
 
     def start(self):
         """Start listening for hotkey presses."""
         if self.listener is not None:
-            logging.warning("Hotkey listener already running")
+            logger.warning("Hotkey listener already running")
             return
 
         self.listener = keyboard.Listener(
             on_press=self._on_press, on_release=self._on_release
         )
         self.listener.start()
-        logging.info("Hotkey listener started")
 
     def stop(self):
         """Stop listening for hotkey presses."""
         if self.listener is not None:
             self.listener.stop()
             self.listener = None
-            logging.info("Hotkey listener stopped")
 
     def _on_press(self, key):
         """Handle key press event (runs in pynput thread)."""
@@ -91,7 +89,6 @@ class HotkeyManager(QObject):
         # Check if hotkey combination is pressed
         if self._is_hotkey_pressed():
             self.hotkey_pressed.emit()  # Thread-safe signal
-            logging.debug("Hotkey pressed")
 
     def _on_release(self, key):
         """Handle key release event (runs in pynput thread)."""

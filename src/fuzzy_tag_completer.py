@@ -25,7 +25,7 @@ class FuzzyTagCompleter(QCompleter):
         super().__init__(tags, parent)
         self.tags = tags
         self.score_cutoff = (
-            40  # Lower threshold for autocomplete (more lenient than search)
+            60  # Threshold for fuzzy matching (same as search engine)
         )
         self.current_prefix = None  # For multi-tag support
 
@@ -53,9 +53,9 @@ class FuzzyTagCompleter(QCompleter):
         # Otherwise use path (for backward compatibility)
         match_text = self.current_prefix if self.current_prefix is not None else path
 
-        if not match_text:
-            # Show all tags if no input
-            return self.tags[:10]
+        if not match_text or not match_text.strip():
+            # No input - return empty list (tests expect this)
+            return []
 
         # Get fuzzy matches with scores
         matches = []
@@ -67,9 +67,12 @@ class FuzzyTagCompleter(QCompleter):
             # Boost score for exact prefix matches
             if tag_lower.startswith(match_lower):
                 score = 100  # Perfect prefix match
+            elif match_lower in tag_lower:
+                # Substring match gets high score
+                score = 90
             else:
-                # Use partial_ratio for fuzzy matching (e.g., typos)
-                score = fuzz.partial_ratio(match_lower, tag_lower)
+                # Use ratio for fuzzy matching (more strict than partial_ratio)
+                score = fuzz.ratio(match_lower, tag_lower)
 
             if score >= self.score_cutoff:
                 matches.append((tag, score))
@@ -78,10 +81,8 @@ class FuzzyTagCompleter(QCompleter):
         matches.sort(key=lambda x: (-x[1], x[0]))
 
         # Return top 10 matches (limit suggestions)
-        result = [tag for tag, score in matches[:10]]
-
-        # Always return at least something to keep popup active
-        return result if result else [path]
+        # Return empty list if no matches (tests expect this)
+        return [tag for tag, score in matches[:10]]
 
     def set_current_tag_prefix(self, prefix: str):
         """

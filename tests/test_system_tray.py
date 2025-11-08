@@ -223,3 +223,138 @@ def test_menu_action_exit(
 
         # Verify QApplication.quit was called
         mock_quit.assert_called_once()
+
+
+def test_menu_has_backup_actions(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that context menu includes backup-related actions."""
+    from src.system_tray import SystemTray
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    # Get context menu
+    menu = tray.tray_icon.contextMenu()
+    actions = menu.actions()
+    action_texts = [action.text() for action in actions if not action.isSeparator()]
+
+    # Verify backup menu items exist
+    assert any("Backup Now" in text or "Create Backup" in text for text in action_texts)
+    assert any("Restore from Backup" in text or "Restore" in text for text in action_texts)
+    assert any("Open Backup Folder" in text or "Backup Folder" in text for text in action_texts)
+
+
+def test_menu_action_backup_now(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that 'Backup Now' action creates manual backup."""
+    from src.system_tray import SystemTray
+
+    # Mock create_manual_backup method
+    mock_snippet_manager.create_manual_backup = Mock(return_value="C:\\Users\\test\\.quick-snippet-overlay\\snippets.yaml.backup.20251107-143022")
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    with patch.object(tray.tray_icon, "showMessage") as mock_show_message:
+        tray._on_backup_now()
+
+        # Verify backup was created
+        mock_snippet_manager.create_manual_backup.assert_called_once()
+
+        # Verify success message shown
+        mock_show_message.assert_called_once()
+        call_args = mock_show_message.call_args
+        assert "Backup Created" in call_args[0][0] or "Success" in call_args[0][1]
+
+
+def test_menu_action_backup_now_failure(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that 'Backup Now' action handles errors gracefully."""
+    from src.system_tray import SystemTray
+
+    # Mock failed backup
+    mock_snippet_manager.create_manual_backup = Mock(side_effect=Exception("Permission denied"))
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    with patch.object(tray.tray_icon, "showMessage") as mock_show_message:
+        tray._on_backup_now()
+
+        # Verify error message shown
+        mock_show_message.assert_called_once()
+        call_args = mock_show_message.call_args
+        assert "Backup Failed" in call_args[0][0] or "Error" in call_args[0][1]
+
+
+def test_menu_action_restore_from_backup(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that 'Restore from Backup' opens restore dialog."""
+    from src.system_tray import SystemTray
+
+    # Mock list_backups method
+    mock_snippet_manager.list_backups = Mock(return_value=[
+        {"path": "snippets.yaml.backup.001", "name": "Rotation Backup #1", "timestamp": 1234567890},
+        {"path": "snippets.yaml.backup.002", "name": "Rotation Backup #2", "timestamp": 1234567800},
+    ])
+
+    # Mock restore_from_backup method
+    mock_snippet_manager.restore_from_backup = Mock()
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    # Mock RestoreBackupDialog at import location
+    with patch("src.restore_backup_dialog.RestoreBackupDialog") as mock_dialog_class:
+        mock_dialog = Mock()
+        mock_dialog.exec = Mock(return_value=True)  # User clicked OK
+        mock_dialog.selected_backup = "snippets.yaml.backup.001"
+        mock_dialog_class.return_value = mock_dialog
+
+        tray._on_restore_from_backup()
+
+        # Verify dialog was shown
+        mock_dialog_class.assert_called_once()
+        mock_dialog.exec.assert_called_once()
+
+        # Verify restore was called
+        mock_snippet_manager.restore_from_backup.assert_called_once_with("snippets.yaml.backup.001")
+
+
+def test_menu_action_restore_from_backup_no_backups(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that 'Restore from Backup' shows error when no backups available."""
+    from src.system_tray import SystemTray
+
+    # Mock empty backups list
+    mock_snippet_manager.list_backups = Mock(return_value=[])
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    with patch("PySide6.QtWidgets.QMessageBox.warning") as mock_warning:
+        tray._on_restore_from_backup()
+
+        # Verify warning dialog shown
+        mock_warning.assert_called_once()
+        call_args = mock_warning.call_args[0]
+        message = call_args[2]
+        assert "No backups" in message or "no backup" in message.lower()
+
+
+def test_menu_action_open_backup_folder(
+    qapp, mock_overlay_window, mock_snippet_manager, mock_config_manager
+):
+    """Test that 'Open Backup Folder' opens folder in Explorer."""
+    from src.system_tray import SystemTray
+
+    mock_config_manager.get.return_value = "C:\\Users\\test\\.quick-snippet-overlay\\snippets.yaml"
+
+    tray = SystemTray(mock_overlay_window, mock_snippet_manager, mock_config_manager)
+
+    # Mock os.startfile for Windows
+    with patch("os.startfile") as mock_startfile:
+        tray._on_open_backup_folder()
+
+        # Verify startfile was called with folder path
+        mock_startfile.assert_called_once_with("C:\\Users\\test\\.quick-snippet-overlay")

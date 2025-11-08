@@ -14,6 +14,8 @@ import logging
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication, QMessageBox
 from PySide6.QtGui import QIcon, QAction
 
+logger = logging.getLogger(__name__)
+
 
 class SystemTray:
     """System tray icon and context menu for Quick Snippet Overlay."""
@@ -37,7 +39,6 @@ class SystemTray:
         self._setup_menu()
 
         self.tray_icon.show()
-        logging.info("System tray icon created")
 
     def _setup_icon(self):
         """Set up tray icon and tooltip."""
@@ -80,6 +81,21 @@ class SystemTray:
 
         menu.addSeparator()
 
+        # Backup menu items
+        backup_now_action = QAction("Backup Now", menu)
+        backup_now_action.triggered.connect(self._on_backup_now)
+        menu.addAction(backup_now_action)
+
+        restore_action = QAction("Restore from Backup...", menu)
+        restore_action.triggered.connect(self._on_restore_from_backup)
+        menu.addAction(restore_action)
+
+        open_backup_folder_action = QAction("Open Backup Folder", menu)
+        open_backup_folder_action.triggered.connect(self._on_open_backup_folder)
+        menu.addAction(open_backup_folder_action)
+
+        menu.addSeparator()
+
         # Settings action (placeholder for v1.1)
         settings_action = QAction("Settings...", menu)
         settings_action.setEnabled(False)  # Disabled for v1.0
@@ -103,7 +119,7 @@ class SystemTray:
         """Handle Open Overlay action."""
         self.overlay_window.show()
         self.overlay_window.activateWindow()
-        logging.info("Overlay opened from tray menu")
+        logger.info("Overlay opened from tray menu")
 
     def _on_edit_snippets(self):
         """Handle Edit Snippets action - opens YAML file in default editor."""
@@ -112,7 +128,7 @@ class SystemTray:
             os.startfile(snippets_path)
         else:
             os.system(f'xdg-open "{snippets_path}"')
-        logging.info(f"Opened snippets file: {snippets_path}")
+        logger.info(f"Opened snippets file: {snippets_path}")
 
     def _on_add_snippet(self):
         """Handle Add Snippet action - opens dialog to create new snippet."""
@@ -131,12 +147,12 @@ class SystemTray:
                         QSystemTrayIcon.MessageIcon.Information,
                         2000,
                     )
-                    logging.info(f"Added snippet: {snippet_data['name']}")
+                    logger.info(f"Added snippet: {snippet_data['name']}")
                 else:
                     QMessageBox.critical(
                         None, "Error", "Failed to save snippet to file."
                     )
-                    logging.error("Failed to save snippet")
+                    logger.error("Failed to save snippet")
 
     def _on_reload_snippets(self):
         """Handle Reload Snippets action."""
@@ -148,7 +164,7 @@ class SystemTray:
                 QSystemTrayIcon.MessageIcon.Information,
                 2000,  # 2 seconds
             )
-            logging.info("Snippets reloaded from tray menu")
+            logger.info("Snippets reloaded from tray menu")
         except Exception as e:
             self.tray_icon.showMessage(
                 "Reload Failed",
@@ -156,7 +172,93 @@ class SystemTray:
                 QSystemTrayIcon.MessageIcon.Critical,
                 3000,
             )
-            logging.error(f"Failed to reload snippets: {e}")
+            logger.error(f"Failed to reload snippets: {e}")
+
+    def _on_backup_now(self):
+        """Handle Backup Now action - creates manual backup with timestamp."""
+        try:
+            backup_path = self.snippet_manager.create_manual_backup()
+            if backup_path:
+                self.tray_icon.showMessage(
+                    "Backup Created",
+                    f"Snippets backed up successfully!",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000,
+                )
+                logger.info(f"Manual backup created: {backup_path}")
+            else:
+                self.tray_icon.showMessage(
+                    "Backup Failed",
+                    "No snippets file to backup.",
+                    QSystemTrayIcon.MessageIcon.Warning,
+                    2000,
+                )
+        except Exception as e:
+            self.tray_icon.showMessage(
+                "Backup Failed",
+                f"Error: {str(e)}",
+                QSystemTrayIcon.MessageIcon.Critical,
+                3000,
+            )
+            logger.error(f"Failed to create backup: {e}")
+
+    def _on_restore_from_backup(self):
+        """Handle Restore from Backup action - opens dialog to select backup."""
+        try:
+            backups = self.snippet_manager.list_backups()
+
+            if not backups:
+                QMessageBox.warning(
+                    None,
+                    "No Backups Available",
+                    "No backup files found.\n\n"
+                    "Backups are created automatically before modifications,\n"
+                    "or you can create one manually using 'Backup Now'.",
+                )
+                return
+
+            # Import here to avoid Qt initialization order issues
+            from src.restore_backup_dialog import RestoreBackupDialog
+
+            dialog = RestoreBackupDialog(backups)
+            if dialog.exec():
+                backup_path = dialog.selected_backup
+                if backup_path:
+                    # Restore from backup
+                    self.snippet_manager.restore_from_backup(backup_path)
+
+                    # Notify user
+                    self.tray_icon.showMessage(
+                        "Restore Complete",
+                        "Snippets restored successfully!",
+                        QSystemTrayIcon.MessageIcon.Information,
+                        2000,
+                    )
+                    logger.info(f"Restored from backup: {backup_path}")
+
+                    # Reload overlay
+                    if hasattr(self.overlay_window, "reload_snippets"):
+                        self.overlay_window.reload_snippets()
+
+        except Exception as e:
+            QMessageBox.critical(
+                None,
+                "Restore Failed",
+                f"Failed to restore from backup:\n\n{str(e)}",
+            )
+            logger.error(f"Failed to restore from backup: {e}")
+
+    def _on_open_backup_folder(self):
+        """Handle Open Backup Folder action - opens folder in Explorer."""
+        snippets_path = self.config_manager.get("snippet_file")
+        backup_folder = os.path.dirname(snippets_path)
+
+        if sys.platform == "win32":
+            os.startfile(backup_folder)
+        else:
+            os.system(f'xdg-open "{backup_folder}"')
+
+        logger.info(f"Opened backup folder: {backup_folder}")
 
     def _on_about(self):
         """Handle About action."""
@@ -170,5 +272,5 @@ class SystemTray:
 
     def _on_exit(self):
         """Handle Exit action - graceful shutdown."""
-        logging.info("Exit requested from tray menu")
+        logger.info("Exit requested from tray menu")
         QApplication.quit()

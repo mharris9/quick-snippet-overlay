@@ -38,17 +38,22 @@ def qt_app():
 
 
 @pytest.fixture
-def overlay_window(qt_app):
+def overlay_window(qt_app, tmp_path):
     """Create OverlayWindow instance for testing."""
     from src.overlay_window import OverlayWindow
     import src.variable_handler as variable_handler
+    from src.usage_tracker import UsageTracker
 
     config = ConfigManager()
     snippet_manager = SnippetManager("tests/fixtures/search_snippets.yaml")
     snippets = snippet_manager.load()
     search_engine = SearchEngine(snippets)
 
-    overlay = OverlayWindow(config, snippet_manager, search_engine, variable_handler)
+    # Create usage tracker for testing
+    usage_stats_file = tmp_path / "usage_stats.yaml"
+    usage_tracker = UsageTracker(str(usage_stats_file))
+
+    overlay = OverlayWindow(config, snippet_manager, search_engine, variable_handler, usage_tracker)
     yield overlay
     overlay.close()
 
@@ -198,12 +203,14 @@ def test_truncation_display(overlay_window):
 
 
 def test_empty_search_state(overlay_window):
-    """Test empty search shows no results."""
-    # Clear search
+    """Test empty search shows all snippets alphabetically."""
+    # Clear search (should show all snippets)
     overlay_window._update_results("")
 
-    # Verify no results
-    assert overlay_window.results_list.count() == 0
+    # Verify results are shown (up to max_results limit)
+    # Default max_results is 10, and we have test snippets available
+    assert overlay_window.results_list.count() > 0
+    assert overlay_window.results_list.count() <= 10
 
 
 def test_copied_visual_feedback_appears(overlay_window):

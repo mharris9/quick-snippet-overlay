@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QTextEdit,
+    QPlainTextEdit,
     QPushButton,
     QLabel,
     QMessageBox,
@@ -151,19 +152,25 @@ class InputFocusProtector(QObject):
 class SnippetEditorDialog(QDialog):
     """Dialog for creating/editing snippets with a simple form."""
 
-    def __init__(self, snippet_manager=None, parent=None):
+    def __init__(self, snippet_manager=None, parent=None, snippet=None):
         """
         Initialize snippet editor dialog.
 
         Args:
             snippet_manager: SnippetManager instance for tag suggestions (optional)
             parent: Parent widget (optional)
+            snippet: Snippet object to edit (optional, if None creates new snippet)
         """
         super().__init__(parent)
         self.snippet_manager = snippet_manager
         self.snippet_data = None
+        self.snippet = snippet  # Store snippet for edit mode
         self._setup_ui()
         self._setup_completer()
+
+        # If editing existing snippet, populate fields
+        if self.snippet:
+            self._populate_fields()
 
     def mousePressEvent(self, event):
         """
@@ -180,7 +187,12 @@ class SnippetEditorDialog(QDialog):
 
     def _setup_ui(self):
         """Create and configure UI components."""
-        self.setWindowTitle("Add Snippet")
+        # Set title based on mode (edit vs add)
+        if self.snippet:
+            self.setWindowTitle("Edit Snippet")
+        else:
+            self.setWindowTitle("Add Snippet")
+
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
 
@@ -194,10 +206,15 @@ class SnippetEditorDialog(QDialog):
         layout.addWidget(name_label)
         layout.addWidget(self.name_input)
 
-        # Description field
+        # Description field (multirow)
         desc_label = QLabel("Description:")
-        self.desc_input = QLineEdit()
+        self.desc_input = QPlainTextEdit()
         self.desc_input.setPlaceholderText("Brief description for search")
+        self.desc_input.setFixedHeight(75)  # Approximately 3 rows
+        # Match QLineEdit background color
+        self.desc_input.setStyleSheet(
+            "QPlainTextEdit { background-color: palette(base); }"
+        )
         layout.addWidget(desc_label)
         layout.addWidget(self.desc_input)
 
@@ -214,13 +231,22 @@ class SnippetEditorDialog(QDialog):
         self.content_input.setPlaceholderText(
             "Paste or type your snippet content here...\n\nTip: Use {{variable_name:default}} for variables"
         )
+        # Match QLineEdit background color
+        self.content_input.setStyleSheet(
+            "QTextEdit { background-color: palette(base); }"
+        )
         layout.addWidget(content_label)
         layout.addWidget(self.content_input)
 
         # Buttons
         button_layout = QHBoxLayout()
 
-        self.save_button = QPushButton("Save Snippet")
+        # Set button text based on mode (edit vs add)
+        if self.snippet:
+            self.save_button = QPushButton("Save Changes")
+        else:
+            self.save_button = QPushButton("Save Snippet")
+
         self.save_button.clicked.connect(self._on_save)
         self.save_button.setDefault(True)
 
@@ -424,7 +450,7 @@ class SnippetEditorDialog(QDialog):
         """Validate and save snippet data."""
         # Get values
         name = self.name_input.text().strip()
-        description = self.desc_input.text().strip()
+        description = self.desc_input.toPlainText().strip()
         content = self.content_input.toPlainText().strip()
         tags_str = self.tags_input.text().strip()
 
@@ -476,6 +502,28 @@ class SnippetEditorDialog(QDialog):
         }
 
         self.accept()
+
+    def _populate_fields(self):
+        """
+        Populate form fields with data from existing snippet (edit mode).
+        """
+        if not self.snippet:
+            return
+
+        # Fill in name
+        self.name_input.setText(self.snippet.name)
+
+        # Fill in description
+        if self.snippet.description:
+            self.desc_input.setPlainText(self.snippet.description)
+
+        # Fill in tags (join list into comma-separated string)
+        if self.snippet.tags:
+            tags_str = ", ".join(self.snippet.tags)
+            self.tags_input.setText(tags_str)
+
+        # Fill in content
+        self.content_input.setPlainText(self.snippet.content)
 
     def get_snippet_data(self):
         """

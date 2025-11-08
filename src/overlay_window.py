@@ -10,6 +10,9 @@ Classes:
 
 from typing import Optional
 import logging
+
+logger = logging.getLogger(__name__)
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -21,6 +24,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QApplication,
     QPushButton,
+    QMenu,
 )
 from PySide6.QtCore import Qt, QTimer, QCoreApplication
 from PySide6.QtGui import QCursor, QKeyEvent
@@ -43,7 +47,7 @@ class OverlayWindow(QWidget):
     - Quick add snippet button (+ button or Ctrl+N)
     """
 
-    def __init__(self, config, snippet_manager, search_engine, variable_handler):
+    def __init__(self, config, snippet_manager, search_engine, variable_handler, usage_tracker):
         """
         Initialize overlay window.
 
@@ -52,18 +56,23 @@ class OverlayWindow(QWidget):
             snippet_manager: SnippetManager instance
             search_engine: SearchEngine instance
             variable_handler: VariableHandler instance
+            usage_tracker: UsageTracker instance for frequency tracking
         """
         super().__init__()
         self.config = config
         self.snippet_manager = snippet_manager
         self.search_engine = search_engine
         self.variable_handler = variable_handler
+        self.usage_tracker = usage_tracker
 
         self.debounce_timer = None
         self.copied_label = None
 
         # For drag functionality
         self.drag_position = None
+
+        # Track if dialog is open (prevents hotkey toggle during editing)
+        self.dialog_open = False
 
         self._setup_ui()
         self._setup_connections()
@@ -128,6 +137,31 @@ class OverlayWindow(QWidget):
         )
         top_layout.addWidget(self.delete_button)
 
+        # Edit snippet button
+        self.edit_button = QPushButton("✏️")
+        self.edit_button.setToolTip("Edit Selected Snippet")
+        self.edit_button.setFixedSize(40, 40)
+        self.edit_button.clicked.connect(self._on_edit_snippet_clicked)
+        self.edit_button.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #E65100;
+            }
+        """
+        )
+        top_layout.addWidget(self.edit_button)
+
         # Add snippet button
         self.add_button = QPushButton("+")
         self.add_button.setToolTip("Add New Snippet (Ctrl+N)")
@@ -157,6 +191,8 @@ class OverlayWindow(QWidget):
 
         # Results list (scrollable)
         self.results_list = QListWidget()
+        # Enable context menu on right-click
+        self.results_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         layout.addWidget(self.results_list)
 
         # "Copied!" feedback label (initially hidden)
@@ -209,13 +245,38 @@ class OverlayWindow(QWidget):
         """Connect signals to slots."""
         self.search_input.textChanged.connect(self._on_search_input_changed)
         self.results_list.itemDoubleClicked.connect(self._on_snippet_selected)
+        self.results_list.customContextMenuRequested.connect(self._show_context_menu)
 
     def show_overlay(self):
         """Show overlay and focus search box, centered on active monitor."""
-        # Clear state first
+        # Block signals to prevent textChanged from interfering
+        self.search_input.blockSignals(True)
         self.search_input.clear()
+        self.search_input.blockSignals(False)
+
         self.results_list.clear()
 
+        # Show all snippets alphabetically (no filter)
+        self._update_results("")
+
+        # Show window first
+        self.show()
+
+        # Defer centering until after event loop processes show()
+        QTimer.singleShot(0, self._center_on_active_monitor)
+
+        # Defer focus/activation to ensure window is positioned first
+        # This ensures popup "click outside to close" works immediately
+        QTimer.singleShot(10, self._activate_and_focus)
+
+    def _activate_and_focus(self):
+        """Activate window and set focus (ensures popup click-outside behavior works)."""
+        self.raise_()  # Raise window to top of window stack
+        self.activateWindow()  # Activate the window
+        self.search_input.setFocus()  # Set focus to search input
+
+    def _center_on_active_monitor(self):
+        """Center window on the active monitor (called after show)."""
         # Get active screen (monitor with mouse cursor)
         cursor_pos = QCursor.pos()
         app = QApplication.instance()
@@ -233,19 +294,20 @@ class OverlayWindow(QWidget):
         # Center on active screen
         if active_screen:
             screen_geometry = active_screen.availableGeometry()
+
+            # Calculate center position
             x = screen_geometry.x() + (screen_geometry.width() - self.width()) // 2
             y = screen_geometry.y() + (screen_geometry.height() - self.height()) // 2
-            self.move(x, y)
 
-        # Show window and focus search input
-        self.show()
-        self.activateWindow()
-        self.search_input.setFocus()
+            self.move(x, y)
 
     def hide_overlay(self):
         """Hide overlay and clear state."""
         self.hide()
+        # Block signals to prevent textChanged events
+        self.search_input.blockSignals(True)
         self.search_input.clear()
+        self.search_input.blockSignals(False)
         self.results_list.clear()
 
     def reload_snippets(self):
@@ -260,7 +322,7 @@ class OverlayWindow(QWidget):
             if self.isVisible():
                 self._perform_search()
         except Exception as e:
-            logging.error(f"Failed to reload snippets: {e}")
+            logger.error(f"Failed to reload snippets: {e}")
 
     def _on_search_input_changed(self, text):
         """Handle search input change with debouncing."""
@@ -279,34 +341,60 @@ class OverlayWindow(QWidget):
         """Update results list based on search query."""
         self.results_list.clear()
 
-        if not query.strip():
-            # Empty search: show nothing
-            return
-
-        # Search snippets
         max_results = self.config.get("max_results", 10)
-        threshold = self.config.get("fuzzy_threshold", 60)
 
-        results = self.search_engine.search(query, threshold=threshold)
+        if not query.strip():
+            # Empty search: show all snippets sorted by frequency then alphabetically
+            sorted_snippets = self.snippet_manager.get_sorted_snippets(self.usage_tracker)
+            limited_snippets = sorted_snippets[:max_results]
 
-        # Limit results to max_results
-        limited_results = results[:max_results]
+            # Display snippets
+            for snippet in limited_snippets:
+                # Truncate content to 2 lines
+                content_lines = snippet.content.split("\n")
+                truncated = "\n".join(content_lines[:2])
+                if len(content_lines) > 2:
+                    truncated += "\n..."
 
-        # Display results with truncation
-        for result in limited_results:
-            snippet = result["snippet"]
+                # Create list item
+                item = QListWidgetItem()
+                item.setText(f"{snippet.name}\n{truncated}")
+                item.setData(Qt.ItemDataRole.UserRole, snippet)
+                self.results_list.addItem(item)
+        else:
+            # Search snippets with fuzzy matching
+            threshold = self.config.get("fuzzy_threshold", 60)
+            results = self.search_engine.search(query, threshold=threshold)
 
-            # Truncate content to 2 lines
-            content_lines = snippet.content.split("\n")
-            truncated = "\n".join(content_lines[:2])
-            if len(content_lines) > 2:
-                truncated += "\n..."
+            # Sort results by usage frequency (most used first), then by search score
+            # Get usage counts for sorting
+            def sort_key(result):
+                snippet = result["snippet"]
+                usage_count = self.usage_tracker.get_count(snippet.id)
+                search_score = result["score"]
+                # Primary: usage frequency (descending), Secondary: search score (descending)
+                return (-usage_count, -search_score)
 
-            # Create list item
-            item = QListWidgetItem()
-            item.setText(f"{snippet.name}\n{truncated}")
-            item.setData(Qt.ItemDataRole.UserRole, snippet)  # Store snippet object
-            self.results_list.addItem(item)
+            results.sort(key=sort_key)
+
+            # Limit results to max_results
+            limited_results = results[:max_results]
+
+            # Display results with truncation
+            for result in limited_results:
+                snippet = result["snippet"]
+
+                # Truncate content to 2 lines
+                content_lines = snippet.content.split("\n")
+                truncated = "\n".join(content_lines[:2])
+                if len(content_lines) > 2:
+                    truncated += "\n..."
+
+                # Create list item
+                item = QListWidgetItem()
+                item.setText(f"{snippet.name}\n{truncated}")
+                item.setData(Qt.ItemDataRole.UserRole, snippet)  # Store snippet object
+                self.results_list.addItem(item)
 
         # Select first result
         if self.results_list.count() > 0:
@@ -410,6 +498,11 @@ class OverlayWindow(QWidget):
         # Copy to clipboard
         try:
             pyperclip.copy(content)
+
+            # Increment usage count and save
+            self.usage_tracker.increment(snippet.id)
+            self.usage_tracker.save()
+
             self._show_copied_feedback()
 
             # Close overlay after 500ms
@@ -427,42 +520,191 @@ class OverlayWindow(QWidget):
         from src.snippet_editor_dialog import SnippetEditorDialog
         from PySide6.QtWidgets import QDialog
 
-        # Create and show dialog
-        dialog = SnippetEditorDialog(
-            snippet_manager=self.snippet_manager,
-            parent=self,  # Overlay as parent for proper stacking
-        )
+        # Mark dialog as open (prevents hotkey toggle)
+        self.dialog_open = True
 
-        # Show dialog modally
-        result = dialog.exec()
+        try:
+            # Create and show dialog
+            dialog = SnippetEditorDialog(
+                snippet_manager=self.snippet_manager,
+                parent=self,  # Overlay as parent for proper stacking
+            )
 
-        # If snippet was saved, refresh the overlay results
-        if result == QDialog.DialogCode.Accepted:
-            # Reload snippets (snippet_manager watches file, but force refresh)
-            self._update_results(self.search_input.text())
+            # Show dialog modally
+            result = dialog.exec()
+
+            # If snippet was saved, add it to the YAML file
+            if result == QDialog.DialogCode.Accepted:
+                snippet_data = dialog.get_snippet_data()
+                if snippet_data:
+                    # Save to YAML file
+                    success = self.snippet_manager.add_snippet(snippet_data)
+                    if success:
+                        # Reload snippets from file
+                        self.reload_snippets()
+                        # Refresh overlay results
+                        self._update_results(self.search_input.text())
+                    else:
+                        QMessageBox.warning(
+                            self, "Error", "Failed to save snippet to file."
+                        )
 
             # Restore focus to search input
             self.search_input.setFocus()
+
+        finally:
+            # Always reset dialog flag when dialog closes
+            self.dialog_open = False
+
+    def _on_edit_snippet_clicked(self):
+        """Open the Edit Snippet dialog for the currently selected snippet."""
+        from src.snippet_editor_dialog import SnippetEditorDialog
+        from PySide6.QtWidgets import QDialog
+
+        # Get currently selected item
+        current_item = self.results_list.currentItem()
+        if not current_item:
+            QMessageBox.information(
+                self, "No Selection", "Please select a snippet to edit."
+            )
+            return
+
+        # Get the snippet object from the item
+        snippet = current_item.data(Qt.ItemDataRole.UserRole)
+        if not snippet:
+            return
+
+        # Mark dialog as open (prevents hotkey toggle)
+        self.dialog_open = True
+
+        try:
+            # Create and show dialog in edit mode
+            dialog = SnippetEditorDialog(
+                snippet_manager=self.snippet_manager,
+                parent=self,
+                snippet=snippet,  # Pass the snippet for editing
+            )
+
+            # Show dialog modally
+            result = dialog.exec()
+
+            # If snippet was saved, update it in the YAML file
+            if result == QDialog.DialogCode.Accepted:
+                snippet_data = dialog.get_snippet_data()
+                if snippet_data:
+                    # Update snippet in YAML file
+                    success = self.snippet_manager.update_snippet(
+                        snippet.id, snippet_data
+                    )
+                    if success:
+                        # Reload snippets from file
+                        self.reload_snippets()
+                        # Refresh overlay results
+                        self._update_results(self.search_input.text())
+                    else:
+                        QMessageBox.warning(
+                            self, "Error", "Failed to update snippet in file."
+                        )
+
+            # Restore focus to search input
+            self.search_input.setFocus()
+
+        finally:
+            # Always reset dialog flag when dialog closes
+            self.dialog_open = False
 
     def _on_delete_snippets_clicked(self):
         """Open the Delete Snippets dialog."""
         from src.delete_snippets_dialog import DeleteSnippetsDialog
         from PySide6.QtWidgets import QDialog
 
-        # Get all snippets from snippet_manager
-        snippets = self.snippet_manager.get_all_snippets()
+        # Mark dialog as open (prevents hotkey toggle)
+        self.dialog_open = True
 
-        # IMPORTANT: Hide the overlay before showing the dialog
-        # This prevents keyboard/focus conflicts with the Popup window
-        self.hide()
+        try:
+            # Get all snippets from snippet_manager
+            snippets = self.snippet_manager.get_all_snippets()
 
-        # Create and show dialog (parent=None to make it independent)
-        dialog = DeleteSnippetsDialog(
-            snippets=snippets, snippet_manager=self.snippet_manager, parent=None
-        )
+            # IMPORTANT: Hide the overlay before showing the dialog
+            # This prevents keyboard/focus conflicts with the Popup window
+            self.hide()
 
-        # Show dialog modally
-        result = dialog.exec()
+            # Create and show dialog (parent=None to make it independent)
+            dialog = DeleteSnippetsDialog(
+                snippets=snippets, snippet_manager=self.snippet_manager, parent=None
+            )
 
-        # Don't automatically show the overlay again - user can reopen with hotkey
-        # This prevents the overlay from interfering with other applications
+            # Show dialog modally
+            result = dialog.exec()
+
+            # Don't automatically show the overlay again - user can reopen with hotkey
+            # This prevents the overlay from interfering with other applications
+
+        finally:
+            # Always reset dialog flag when dialog closes
+            self.dialog_open = False
+
+    def _show_context_menu(self, position):
+        """Show context menu on right-click with Edit and Delete options."""
+        logger.info(f"Context menu requested at position: {position}")
+
+        # Get item at position
+        item = self.results_list.itemAt(position)
+        if not item:
+            logger.warning("No item at position, returning")
+            return
+
+        logger.info(f"Item found: {item.text()[:30]}")
+
+        # Don't show menu if dialog is open
+        if self.dialog_open:
+            logger.warning("Dialog is open, not showing context menu")
+            return
+
+        # Select the item (if not already selected)
+        self.results_list.setCurrentItem(item)
+
+        # Create menu
+        menu = QMenu(self)
+        edit_action = menu.addAction("Edit")
+        delete_action = menu.addAction("Delete")
+
+        # Connect actions
+        edit_action.triggered.connect(self._on_edit_snippet_clicked)
+        delete_action.triggered.connect(self._on_delete_single_snippet)
+
+        # Show menu at cursor position
+        menu.exec(self.results_list.mapToGlobal(position))
+
+    def _on_delete_single_snippet(self):
+        """Delete the currently selected snippet via context menu."""
+        current_item = self.results_list.currentItem()
+        if not current_item:
+            return
+
+        snippet = current_item.data(Qt.ItemDataRole.UserRole)
+        if not snippet:
+            return
+
+        # Mark dialog as open
+        self.dialog_open = True
+
+        try:
+            # Show confirmation
+            reply = QMessageBox.question(
+                self,
+                "Delete Snippet",
+                f"Are you sure you want to delete '{snippet.name}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Delete the snippet
+                self.snippet_manager.delete_snippets([snippet.id])
+
+                # Reload and refresh
+                self.reload_snippets()
+                self._update_results(self.search_input.text())
+        finally:
+            self.dialog_open = False

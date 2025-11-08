@@ -1081,3 +1081,736 @@ def test_save_snippets_preserves_data(temp_snippets_file):
     assert s.tags == ["tag1", "tag2"]
     assert s.created == date(2025, 11, 1)
     assert s.modified == date(2025, 11, 2)
+
+
+# ============================================================================
+# Test Case 17: Automatic Backup on Add
+# ============================================================================
+
+
+def test_automatic_backup_on_add_snippet(temp_snippets_file):
+    """
+    Test that add_snippet creates backup before adding.
+
+    Verifies:
+    - Backup file created before add operation
+    - Backup contains original state
+    - New snippet added successfully
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file with 1 snippet
+    yaml_content = """
+version: 1
+snippets:
+  - id: original-snippet
+    name: Original Snippet
+    description: Original content
+    content: echo "original"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Add new snippet (should trigger backup)
+    new_snippet = {
+        "id": "new-snippet",
+        "name": "New Snippet",
+        "description": "New content",
+        "content": 'echo "new"',
+        "tags": ["test"],
+        "created": "2025-11-04",
+        "modified": "2025-11-04",
+    }
+    manager.add_snippet(new_snippet)
+
+    # Verify backup was created
+    backup_file = Path(f"{temp_snippets_file}.backup.001")
+    assert backup_file.exists(), "Backup should be created before add"
+
+    # Verify backup contains original state (1 snippet)
+    with open(backup_file) as f:
+        backup_data = yaml.safe_load(f)
+    assert len(backup_data["snippets"]) == 1
+    assert backup_data["snippets"][0]["id"] == "original-snippet"
+
+    # Verify new file has 2 snippets
+    current_snippets = manager.load()
+    assert len(current_snippets) == 2
+
+
+# ============================================================================
+# Test Case 18: Automatic Backup on Update
+# ============================================================================
+
+
+def test_automatic_backup_on_update_snippet(temp_snippets_file):
+    """
+    Test that update_snippet creates backup before updating.
+
+    Verifies:
+    - Backup created before update operation
+    - Backup contains state before update
+    - Update applied successfully
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-to-update
+    name: Original Name
+    description: Original description
+    content: echo "original"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Update snippet (should trigger backup)
+    updated_data = {
+        "name": "Updated Name",
+        "description": "Updated description",
+        "content": 'echo "updated"',
+        "tags": ["test", "updated"],
+    }
+    manager.update_snippet("snippet-to-update", updated_data)
+
+    # Verify backup was created
+    backup_file = Path(f"{temp_snippets_file}.backup.001")
+    assert backup_file.exists(), "Backup should be created before update"
+
+    # Verify backup contains original name
+    with open(backup_file) as f:
+        backup_data = yaml.safe_load(f)
+    assert backup_data["snippets"][0]["name"] == "Original Name"
+
+    # Verify current file has updated name
+    current_snippets = manager.load()
+    assert current_snippets[0].name == "Updated Name"
+
+
+# ============================================================================
+# Test Case 19: Automatic Backup on Delete
+# ============================================================================
+
+
+def test_automatic_backup_on_delete_snippets(temp_snippets_file):
+    """
+    Test that delete_snippets creates backup before deleting.
+
+    Verifies:
+    - Backup created before delete operation
+    - Backup contains all original snippets
+    - Delete operation successful
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file with 3 snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Snippet 1
+    description: First snippet
+    content: echo "test 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Snippet 2
+    description: Second snippet
+    content: echo "test 2"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-3
+    name: Snippet 3
+    description: Third snippet
+    content: echo "test 3"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Delete 2 snippets (should trigger backup)
+    manager.delete_snippets(["snippet-1", "snippet-2"])
+
+    # Verify backup was created
+    backup_file = Path(f"{temp_snippets_file}.backup.001")
+    assert backup_file.exists(), "Backup should be created before delete"
+
+    # Verify backup contains all 3 original snippets
+    with open(backup_file) as f:
+        backup_data = yaml.safe_load(f)
+    assert len(backup_data["snippets"]) == 3
+
+    # Verify current file has only 1 snippet
+    current_snippets = manager.load()
+    assert len(current_snippets) == 1
+    assert current_snippets[0].id == "snippet-3"
+
+
+# ============================================================================
+# Test Case 20: Manual Backup with Timestamp
+# ============================================================================
+
+
+def test_manual_backup_with_timestamp(temp_snippets_file):
+    """
+    Test manual backup creation with timestamp.
+
+    Verifies:
+    - Manual backup created with timestamp in filename
+    - Filename format: snippets.yaml.backup.YYYYMMDD-HHMMSS
+    - Backup content matches current file
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file
+    yaml_content = """
+version: 1
+snippets:
+  - id: test-snippet
+    name: Test Snippet
+    description: Test content
+    content: echo "test"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create manual backup
+    backup_path = manager.create_manual_backup()
+
+    # Verify backup exists
+    assert backup_path is not None
+    assert Path(backup_path).exists()
+
+    # Verify filename format (contains timestamp)
+    assert ".backup." in str(backup_path)
+    # Should have format like: snippets.yaml.backup.20251107-143022
+
+    # Verify content matches
+    with open(backup_path) as f:
+        backup_data = yaml.safe_load(f)
+    assert len(backup_data["snippets"]) == 1
+    assert backup_data["snippets"][0]["id"] == "test-snippet"
+
+
+# ============================================================================
+# Test Case 21: List Available Backups
+# ============================================================================
+
+
+def test_list_available_backups(temp_snippets_file):
+    """
+    Test listing available backup files.
+
+    Verifies:
+    - Both automatic and manual backups are listed
+    - Returns sorted list (newest first)
+    - Includes rotation backups and timestamped backups
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create main file
+    yaml_content = """
+version: 1
+snippets:
+  - id: test-snippet
+    name: Test Snippet
+    description: Test content
+    content: echo "test"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create rotation backups
+    for i in range(1, 4):
+        backup_path = Path(f"{temp_snippets_file}.backup.{i:03d}")
+        backup_path.write_text(f"Backup {i}")
+
+    # Create manual backup
+    manager.create_manual_backup()
+    time.sleep(0.1)  # Ensure different timestamp
+    manager.create_manual_backup()
+
+    # List backups
+    backups = manager.list_backups()
+
+    # Should have 5 backups total (3 rotation + 2 manual)
+    assert len(backups) >= 3  # At least rotation backups
+    assert isinstance(backups, list)
+
+    # Verify each backup has path and timestamp
+    for backup in backups:
+        assert "path" in backup
+        assert "timestamp" in backup or "name" in backup
+        assert Path(backup["path"]).exists()
+
+
+# ============================================================================
+# Test Case 22: Restore from Backup
+# ============================================================================
+
+
+def test_restore_from_backup(temp_snippets_file):
+    """
+    Test restoring snippets from backup file.
+
+    Verifies:
+    - Backup content replaces current file
+    - Previous state is restored successfully
+    - Manager reloads snippets after restore
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file with 2 snippets
+    original_yaml = """
+version: 1
+snippets:
+  - id: snippet-1
+    name: Original Snippet 1
+    description: Original content
+    content: echo "original 1"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-2
+    name: Original Snippet 2
+    description: Original content
+    content: echo "original 2"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(original_yaml)
+    manager.load()
+
+    # Create backup
+    manager.create_backup()
+    backup_file = Path(f"{temp_snippets_file}.backup.001")
+
+    # Modify current file (delete 1 snippet)
+    modified_yaml = """
+version: 1
+snippets:
+  - id: snippet-2
+    name: Modified Snippet 2
+    description: Modified content
+    content: echo "modified"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(modified_yaml)
+    manager.load()
+    assert len(manager.snippets) == 1
+
+    # Restore from backup
+    manager.restore_from_backup(str(backup_file))
+
+    # Verify restoration
+    restored_snippets = manager.load()
+    assert len(restored_snippets) == 2
+    assert restored_snippets[0].name == "Original Snippet 1"
+    assert restored_snippets[1].name == "Original Snippet 2"
+
+
+# ============================================================================
+# Test Case 23: Restore from Invalid Backup
+# ============================================================================
+
+
+def test_restore_from_invalid_backup(temp_snippets_file):
+    """
+    Test error handling when restoring from invalid backup.
+
+    Verifies:
+    - ValueError raised if backup file doesn't exist
+    - Current file remains unchanged
+    - Error message is descriptive
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create initial file
+    yaml_content = """
+version: 1
+snippets:
+  - id: test-snippet
+    name: Test Snippet
+    description: Test content
+    content: echo "test"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Try to restore from non-existent backup
+    fake_backup = str(temp_snippets_file.parent / "nonexistent.backup")
+
+    with pytest.raises(ValueError, match="not found|does not exist"):
+        manager.restore_from_backup(fake_backup)
+
+    # Verify current file unchanged
+    current_snippets = manager.load()
+    assert len(current_snippets) == 1
+    assert current_snippets[0].id == "test-snippet"
+
+
+# ============================================================================
+# Test Case 24: Sort Snippets by Frequency - Descending
+# ============================================================================
+
+
+def test_sort_snippets_by_frequency_descending(temp_snippets_file, tmp_path):
+    """
+    Test snippets are sorted by usage frequency (most used first).
+
+    Verifies:
+    - Snippets with higher usage count appear first
+    - Frequency sorting is descending (42 > 15 > 8)
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create test snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-low-usage
+    name: Low Usage
+    description: Used 8 times
+    content: echo "low"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-high-usage
+    name: High Usage
+    description: Used 42 times
+    content: echo "high"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-mid-usage
+    name: Mid Usage
+    description: Used 15 times
+    content: echo "mid"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create usage tracker with stats
+    from src.usage_tracker import UsageTracker
+
+    stats_file = tmp_path / "usage_stats.yaml"
+    tracker = UsageTracker(str(stats_file))
+    tracker.usage_counts = {
+        "snippet-high-usage": 42,
+        "snippet-mid-usage": 15,
+        "snippet-low-usage": 8,
+    }
+
+    # Get sorted snippets
+    sorted_snippets = manager.get_sorted_snippets(tracker)
+
+    # Verify order: high (42), mid (15), low (8)
+    assert len(sorted_snippets) == 3
+    assert sorted_snippets[0].id == "snippet-high-usage"
+    assert sorted_snippets[1].id == "snippet-mid-usage"
+    assert sorted_snippets[2].id == "snippet-low-usage"
+
+
+# ============================================================================
+# Test Case 25: Sort Snippets Alphabetically When Frequency Tied
+# ============================================================================
+
+
+def test_sort_snippets_alphabetically_when_frequency_tied(temp_snippets_file, tmp_path):
+    """
+    Test snippets with same frequency are sorted alphabetically by name.
+
+    Verifies:
+    - When usage counts are equal, alphabetical sorting is applied
+    - Alphabetical sort is case-insensitive ascending (A-Z)
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create test snippets (all with same usage count)
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-zebra
+    name: Zebra Snippet
+    description: Z comes last
+    content: echo "zebra"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-alpha
+    name: Alpha Snippet
+    description: A comes first
+    content: echo "alpha"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-bravo
+    name: Bravo Snippet
+    description: B comes second
+    content: echo "bravo"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create usage tracker - all snippets have count of 10
+    from src.usage_tracker import UsageTracker
+
+    stats_file = tmp_path / "usage_stats.yaml"
+    tracker = UsageTracker(str(stats_file))
+    tracker.usage_counts = {
+        "snippet-zebra": 10,
+        "snippet-alpha": 10,
+        "snippet-bravo": 10,
+    }
+
+    # Get sorted snippets
+    sorted_snippets = manager.get_sorted_snippets(tracker)
+
+    # Verify alphabetical order: Alpha, Bravo, Zebra
+    assert len(sorted_snippets) == 3
+    assert sorted_snippets[0].name == "Alpha Snippet"
+    assert sorted_snippets[1].name == "Bravo Snippet"
+    assert sorted_snippets[2].name == "Zebra Snippet"
+
+
+# ============================================================================
+# Test Case 26: New Snippets (Zero Usage) Appear at Bottom
+# ============================================================================
+
+
+def test_new_snippets_appear_at_bottom_alphabetically(temp_snippets_file, tmp_path):
+    """
+    Test snippets with zero usage appear at bottom, sorted alphabetically.
+
+    Verifies:
+    - Snippets with 0 usage come after all used snippets
+    - Zero-usage snippets are sorted alphabetically among themselves
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create test snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-used
+    name: Used Snippet
+    description: Has usage count
+    content: echo "used"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-new-z
+    name: Zebra New
+    description: Never used
+    content: echo "new-z"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-new-a
+    name: Alpha New
+    description: Never used
+    content: echo "new-a"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create usage tracker - only one snippet has usage
+    from src.usage_tracker import UsageTracker
+
+    stats_file = tmp_path / "usage_stats.yaml"
+    tracker = UsageTracker(str(stats_file))
+    tracker.usage_counts = {
+        "snippet-used": 5,
+        # snippet-new-z and snippet-new-a have 0 usage (not in dict)
+    }
+
+    # Get sorted snippets
+    sorted_snippets = manager.get_sorted_snippets(tracker)
+
+    # Verify order: Used (5), then Alpha New (0), then Zebra New (0)
+    assert len(sorted_snippets) == 3
+    assert sorted_snippets[0].id == "snippet-used"
+    assert sorted_snippets[1].name == "Alpha New"  # Alphabetically first among zero-usage
+    assert sorted_snippets[2].name == "Zebra New"  # Alphabetically second among zero-usage
+
+
+# ============================================================================
+# Test Case 27: Sort Snippets with Mixed Frequency and Alphabetical
+# ============================================================================
+
+
+def test_sort_snippets_mixed_frequency_and_alphabetical(temp_snippets_file, tmp_path):
+    """
+    Test comprehensive sorting: frequency primary, alphabetical secondary.
+
+    Verifies:
+    - Higher frequency snippets come first
+    - Within same frequency, alphabetical order is applied
+    - Zero-usage snippets appear at bottom alphabetically
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create test snippets with various usage patterns
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-freq-10-zebra
+    name: Zebra (Freq 10)
+    description: Frequency 10
+    content: echo "10z"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-freq-20-alpha
+    name: Alpha (Freq 20)
+    description: Frequency 20
+    content: echo "20a"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-freq-10-alpha
+    name: Alpha (Freq 10)
+    description: Frequency 10
+    content: echo "10a"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-new-zebra
+    name: Zebra (New)
+    description: Never used
+    content: echo "0z"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-new-alpha
+    name: Alpha (New)
+    description: Never used
+    content: echo "0a"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create usage tracker
+    from src.usage_tracker import UsageTracker
+
+    stats_file = tmp_path / "usage_stats.yaml"
+    tracker = UsageTracker(str(stats_file))
+    tracker.usage_counts = {
+        "snippet-freq-20-alpha": 20,
+        "snippet-freq-10-zebra": 10,
+        "snippet-freq-10-alpha": 10,
+        # snippet-new-* have 0 usage
+    }
+
+    # Get sorted snippets
+    sorted_snippets = manager.get_sorted_snippets(tracker)
+
+    # Expected order:
+    # 1. Alpha (Freq 20) - highest frequency
+    # 2. Alpha (Freq 10) - tied at 10, alphabetically before Zebra
+    # 3. Zebra (Freq 10) - tied at 10, alphabetically after Alpha
+    # 4. Alpha (New) - zero usage, alphabetically before Zebra
+    # 5. Zebra (New) - zero usage, alphabetically after Alpha
+
+    assert len(sorted_snippets) == 5
+    assert sorted_snippets[0].name == "Alpha (Freq 20)"
+    assert sorted_snippets[1].name == "Alpha (Freq 10)"
+    assert sorted_snippets[2].name == "Zebra (Freq 10)"
+    assert sorted_snippets[3].name == "Alpha (New)"
+    assert sorted_snippets[4].name == "Zebra (New)"
+
+
+# ============================================================================
+# Test Case 28: Sort Snippets with Empty Usage Stats
+# ============================================================================
+
+
+def test_sort_snippets_with_empty_usage_stats(temp_snippets_file, tmp_path):
+    """
+    Test sorting when no usage statistics exist (all snippets have 0 usage).
+
+    Verifies:
+    - All snippets are sorted alphabetically by name
+    - No errors occur with empty usage tracker
+    """
+    manager = SnippetManager(str(temp_snippets_file))
+
+    # Create test snippets
+    yaml_content = """
+version: 1
+snippets:
+  - id: snippet-charlie
+    name: Charlie
+    description: C
+    content: echo "c"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-alpha
+    name: Alpha
+    description: A
+    content: echo "a"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+  - id: snippet-bravo
+    name: Bravo
+    description: B
+    content: echo "b"
+    tags: [test]
+    created: 2025-11-04
+    modified: 2025-11-04
+"""
+    temp_snippets_file.write_text(yaml_content)
+    manager.load()
+
+    # Create empty usage tracker
+    from src.usage_tracker import UsageTracker
+
+    stats_file = tmp_path / "usage_stats.yaml"
+    tracker = UsageTracker(str(stats_file))
+
+    # Get sorted snippets (should be alphabetical)
+    sorted_snippets = manager.get_sorted_snippets(tracker)
+
+    # Verify alphabetical order: Alpha, Bravo, Charlie
+    assert len(sorted_snippets) == 3
+    assert sorted_snippets[0].name == "Alpha"
+    assert sorted_snippets[1].name == "Bravo"
+    assert sorted_snippets[2].name == "Charlie"

@@ -1,20 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(Select-Object Name)",
-      "Bash(Test-Path .venvScriptsActivate.ps1)",
-      "Bash(..venvScriptsActivate.ps1)",
-      "Bash(pytest:*)",
-      "Bash(Get-Process -Id 21808 -ErrorAction SilentlyContinue)",
-      "Bash(git add:*)",
-      "Bash(black:*)",
-      "Bash(Get-Command python)",
-      "SlashCommand(/handoff)",
-      "Bash(.venv/Scripts/python.exe:*)",
-      "Bash(RUN-APP.bat)",
-      "Bash(timeout /t 3)",
-      "Bash(Start-Sleep -Seconds 5)",
-      "Bash(cmd /c RUN-APP.bat)"
+      "Bash(Select-Object ProcessName, Id, Path)",
+      "Bash(taskkill:*)",
+      "Bash(./.venv/Scripts/python.exe:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
