@@ -76,14 +76,15 @@ def test_duplicate_variable():
     assert var_names.count("repo") == 1
 
 
-def test_invalid_variable_names():
-    """Test that variables with invalid names (hyphens, special chars) are ignored."""
-    # Variables with hyphens should be ignored
-    content1 = "Test {{app-name}} invalid"
+def test_variable_names_with_special_chars():
+    """Test that variables with any characters are now accepted."""
+    # Variables with hyphens should work
+    content1 = "Test {{app-name}} valid"
     result1 = detect_variables(content1)
-    assert result1 == []
+    assert len(result1) == 1
+    assert result1[0]["name"] == "app-name"
 
-    # Variables with spaces should NOW WORK (not ignored)
+    # Variables with spaces should work
     content2 = "Test {{app name}} valid"
     result2 = detect_variables(content2)
     assert len(result2) == 1
@@ -95,12 +96,20 @@ def test_invalid_variable_names():
     assert len(result3) == 1
     assert result3[0]["name"] == "app_name"
 
-    # Mix of valid and invalid (hyphens still invalid, spaces now valid)
-    content4 = "{{valid_var}} and {{invalid-var}} and {{space var}}"
+    # Mix of different naming styles - all should work
+    content4 = "{{valid_var}} and {{hyphen-var}} and {{space var}}"
     result4 = detect_variables(content4)
-    assert len(result4) == 2
+    assert len(result4) == 3
     assert result4[0]["name"] == "valid_var"
-    assert result4[1]["name"] == "space var"
+    assert result4[1]["name"] == "hyphen-var"
+    assert result4[2]["name"] == "space var"
+
+    # Complex variable names with mixed characters
+    content5 = "Branch: {{short-description}} and {{Describe the bug}}"
+    result5 = detect_variables(content5)
+    assert len(result5) == 2
+    assert result5[0]["name"] == "short-description"
+    assert result5[1]["name"] == "Describe the bug"
 
 
 def test_variable_names_with_spaces():
@@ -251,3 +260,15 @@ def test_substitute_variables_with_spaces():
     values5 = {"user name": "Dana", "user_id": "12345"}
     result5 = substitute_variables(content5, values5)
     assert result5 == "User: Dana, ID: 12345"
+
+    # Variables with hyphens
+    content6 = "Branch: bugfix/{{short-description}}"
+    values6 = {"short-description": "fix-login-bug"}
+    result6 = substitute_variables(content6, values6)
+    assert result6 == "Branch: bugfix/fix-login-bug"
+
+    # Complex real-world example
+    content7 = "Create branch {{branch-name}} for {{Describe the issue}}"
+    values7 = {"branch-name": "feature/new-ui", "Describe the issue": "UI redesign"}
+    result7 = substitute_variables(content7, values7)
+    assert result7 == "Create branch feature/new-ui for UI redesign"

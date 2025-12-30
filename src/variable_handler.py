@@ -4,10 +4,10 @@ Variable Handler Module
 Provides functions to detect and substitute variables in snippet content.
 
 Variable Syntax:
-- Simple variable: {{variable_name}} or {{variable name}}
+- Simple variable: {{variable_name}} or {{any text here}}
 - Variable with default: {{variable_name:default_value}}
 
-Variable names may contain alphanumeric characters, underscores, and spaces.
+Variable names can contain any characters except closing braces.
 """
 
 import re
@@ -26,16 +26,16 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
         Example: [{'name': 'app_name', 'default': 'app'}, {'name': 'port', 'default': None}]
 
     Edge Cases:
-        - Invalid variable names (with hyphens or special chars) are ignored
         - Empty variable names {{}} are ignored
+        - Leading/trailing whitespace in variable names is trimmed
         - Duplicate variables are deduplicated (returns each unique variable once)
         - Nested braces: {{{var}}} will detect {{var}} as valid variable
     """
     # Regex pattern to match {{...}}
     # Use lookahead (?=...) to find ALL possible {{...}} patterns including overlapping ones
-    # This handles cases like {{{var}}} which contains both {{{var}} and {{var}}
-    # We use non-greedy .+? to stop at the first }}
-    pattern = r"(?=\{\{(.+?)\}\})"
+    # [^{}]+ matches any characters EXCEPT braces, preventing issues with nested braces
+    # This ensures {{{var}}} only matches {{var}}, not {{{var}}
+    pattern = r"(?=\{\{([^{}]+)\}\})"
 
     # findall with lookahead returns only the captured groups
     matches = re.findall(pattern, content)
@@ -47,13 +47,8 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
         # Parse variable name and optional default value
         # Split on first colon only (to handle defaults like "https://example.com")
         parts = match.split(":", 1)
-        # Strip leading/trailing spaces but allow internal spaces
+        # Strip leading/trailing whitespace from variable name
         var_name = parts[0].strip()
-
-        # Validate variable name: alphanumeric, underscore, and spaces allowed
-        if not re.match(r"^[a-zA-Z0-9_ ]+$", var_name):
-            # Invalid variable name - skip it
-            continue
 
         # Skip empty variable names
         if not var_name:
