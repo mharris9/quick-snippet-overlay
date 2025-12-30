@@ -77,16 +77,17 @@ def test_duplicate_variable():
 
 
 def test_invalid_variable_names():
-    """Test that variables with invalid names (hyphens, spaces) are ignored."""
+    """Test that variables with invalid names (hyphens, special chars) are ignored."""
     # Variables with hyphens should be ignored
     content1 = "Test {{app-name}} invalid"
     result1 = detect_variables(content1)
     assert result1 == []
 
-    # Variables with spaces should be ignored
-    content2 = "Test {{app name}} invalid"
+    # Variables with spaces should NOW WORK (not ignored)
+    content2 = "Test {{app name}} valid"
     result2 = detect_variables(content2)
-    assert result2 == []
+    assert len(result2) == 1
+    assert result2[0]["name"] == "app name"
 
     # Valid variable with underscore should work
     content3 = "Test {{app_name}} valid"
@@ -94,12 +95,42 @@ def test_invalid_variable_names():
     assert len(result3) == 1
     assert result3[0]["name"] == "app_name"
 
-    # Mix of valid and invalid
-    content4 = "{{valid_var}} and {{invalid-var}} and {{another_valid}}"
+    # Mix of valid and invalid (hyphens still invalid, spaces now valid)
+    content4 = "{{valid_var}} and {{invalid-var}} and {{space var}}"
     result4 = detect_variables(content4)
     assert len(result4) == 2
     assert result4[0]["name"] == "valid_var"
-    assert result4[1]["name"] == "another_valid"
+    assert result4[1]["name"] == "space var"
+
+
+def test_variable_names_with_spaces():
+    """Test that variables with spaces in names are properly detected."""
+    # Simple variable with space
+    content1 = "Say hello to {{user name}}"
+    result1 = detect_variables(content1)
+    assert len(result1) == 1
+    assert result1[0]["name"] == "user name"
+    assert result1[0]["default"] is None
+
+    # Variable with space and default value
+    content2 = "Welcome {{first name:Guest}}"
+    result2 = detect_variables(content2)
+    assert len(result2) == 1
+    assert result2[0]["name"] == "first name"
+    assert result2[0]["default"] == "Guest"
+
+    # Multiple variables with spaces
+    content3 = "Hello {{first name}}, your email is {{email address}}"
+    result3 = detect_variables(content3)
+    assert len(result3) == 2
+    assert result3[0]["name"] == "first name"
+    assert result3[1]["name"] == "email address"
+
+    # Variable with leading/trailing spaces should be trimmed
+    content4 = "Test {{  trimmed var  }}"
+    result4 = detect_variables(content4)
+    assert len(result4) == 1
+    assert result4[0]["name"] == "trimmed var"
 
 
 def test_nested_braces_literal():
@@ -187,3 +218,36 @@ def test_substitute_multiple_occurrences():
     assert "example.com" in result2
     assert result2.count("example.com") == 2
     assert result2.count("8080") == 2
+
+
+def test_substitute_variables_with_spaces():
+    """Test substitution of variables that have spaces in their names."""
+    # Simple variable with space
+    content1 = "Say hello to {{user name}}"
+    values1 = {"user name": "Alice"}
+    result1 = substitute_variables(content1, values1)
+    assert result1 == "Say hello to Alice"
+
+    # Variable with space and default value
+    content2 = "Welcome {{first name:Guest}}"
+    values2 = {}  # Use default
+    result2 = substitute_variables(content2, values2)
+    assert result2 == "Welcome Guest"
+
+    # Override default for space-containing variable
+    content3 = "Welcome {{first name:Guest}}"
+    values3 = {"first name": "Bob"}
+    result3 = substitute_variables(content3, values3)
+    assert result3 == "Welcome Bob"
+
+    # Multiple variables with spaces
+    content4 = "Hello {{first name}}, your email is {{email address}}"
+    values4 = {"first name": "Charlie", "email address": "charlie@example.com"}
+    result4 = substitute_variables(content4, values4)
+    assert result4 == "Hello Charlie, your email is charlie@example.com"
+
+    # Mix of spaced and underscore variable names
+    content5 = "User: {{user name}}, ID: {{user_id}}"
+    values5 = {"user name": "Dana", "user_id": "12345"}
+    result5 = substitute_variables(content5, values5)
+    assert result5 == "User: Dana, ID: 12345"

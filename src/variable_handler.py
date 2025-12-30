@@ -4,10 +4,10 @@ Variable Handler Module
 Provides functions to detect and substitute variables in snippet content.
 
 Variable Syntax:
-- Simple variable: {{variable_name}}
+- Simple variable: {{variable_name}} or {{variable name}}
 - Variable with default: {{variable_name:default_value}}
 
-Variable names must contain only alphanumeric characters and underscores.
+Variable names may contain alphanumeric characters, underscores, and spaces.
 """
 
 import re
@@ -26,7 +26,7 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
         Example: [{'name': 'app_name', 'default': 'app'}, {'name': 'port', 'default': None}]
 
     Edge Cases:
-        - Invalid variable names (with hyphens, spaces) are ignored
+        - Invalid variable names (with hyphens or special chars) are ignored
         - Empty variable names {{}} are ignored
         - Duplicate variables are deduplicated (returns each unique variable once)
         - Nested braces: {{{var}}} will detect {{var}} as valid variable
@@ -47,10 +47,11 @@ def detect_variables(content: str) -> list[dict[str, Optional[str]]]:
         # Parse variable name and optional default value
         # Split on first colon only (to handle defaults like "https://example.com")
         parts = match.split(":", 1)
+        # Strip leading/trailing spaces but allow internal spaces
         var_name = parts[0].strip()
 
-        # Validate variable name: alphanumeric + underscore only
-        if not re.match(r"^[a-zA-Z0-9_]+$", var_name):
+        # Validate variable name: alphanumeric, underscore, and spaces allowed
+        if not re.match(r"^[a-zA-Z0-9_ ]+$", var_name):
             # Invalid variable name - skip it
             continue
 
