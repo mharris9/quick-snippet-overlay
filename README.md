@@ -131,7 +131,7 @@ On first run, the application will:
 
 ### Using Variables
 
-Create dynamic snippets with variables:
+Create dynamic snippets with variables. Variable names can contain any characters except curly braces:
 
 ```yaml
 content: |
@@ -139,6 +139,10 @@ content: |
 
   Your order #{{order_id:12345}} is ready.
   Total: ${{amount:0.00}}
+
+  # Variables can use spaces and hyphens too:
+  Branch: {{short-description}}
+  Issue: {{Describe the bug}}
 ```
 
 When selected, you'll be prompted to enter values for each variable (or use defaults).

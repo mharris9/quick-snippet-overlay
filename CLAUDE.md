@@ -106,7 +106,7 @@ OverlayWindow hides after 500ms
 - Results sorted by relevance
 
 **Variable System** (`variable_handler.py`, `variable_prompt_dialog.py`):
-- Detects `{{variable_name:default_value}}` syntax
+- Detects `{{variable_name:default_value}}` syntax (any characters allowed except braces)
 - Sequential dialog prompts (one variable at a time)
 - Substitutes variables before clipboard copy
 - Cancel returns to overlay without closing

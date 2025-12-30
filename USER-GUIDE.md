@@ -170,12 +170,14 @@ Once you've selected a snippet:
 
 ### Variable Substitution
 
-Create dynamic snippets with placeholders:
+Create dynamic snippets with placeholders. Variable names can contain any characters except curly braces (spaces, hyphens, etc. are all allowed).
 
 #### Basic Variables
 
 ```
 Hello {{name}}!
+Hello {{user name}}!
+Create branch {{short-description}}
 ```
 
 When you select this snippet, you'll be prompted:
