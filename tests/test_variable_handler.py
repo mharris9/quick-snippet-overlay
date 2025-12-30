@@ -76,17 +76,19 @@ def test_duplicate_variable():
     assert var_names.count("repo") == 1
 
 
-def test_invalid_variable_names():
-    """Test that variables with invalid names (hyphens, spaces) are ignored."""
-    # Variables with hyphens should be ignored
-    content1 = "Test {{app-name}} invalid"
+def test_flexible_variable_names():
+    """Test that variables with any characters (hyphens, spaces, etc.) are accepted."""
+    # Variables with hyphens should work
+    content1 = "Test {{app-name}} valid"
     result1 = detect_variables(content1)
-    assert result1 == []
+    assert len(result1) == 1
+    assert result1[0]["name"] == "app-name"
 
-    # Variables with spaces should be ignored
-    content2 = "Test {{app name}} invalid"
+    # Variables with spaces should work
+    content2 = "Test {{app name}} valid"
     result2 = detect_variables(content2)
-    assert result2 == []
+    assert len(result2) == 1
+    assert result2[0]["name"] == "app name"
 
     # Valid variable with underscore should work
     content3 = "Test {{app_name}} valid"
@@ -94,12 +96,20 @@ def test_invalid_variable_names():
     assert len(result3) == 1
     assert result3[0]["name"] == "app_name"
 
-    # Mix of valid and invalid
-    content4 = "{{valid_var}} and {{invalid-var}} and {{another_valid}}"
+    # Mix of different naming styles - all should work
+    content4 = "{{valid_var}} and {{hyphen-var}} and {{space var}}"
     result4 = detect_variables(content4)
-    assert len(result4) == 2
+    assert len(result4) == 3
     assert result4[0]["name"] == "valid_var"
-    assert result4[1]["name"] == "another_valid"
+    assert result4[1]["name"] == "hyphen-var"
+    assert result4[2]["name"] == "space var"
+
+    # Real-world example with descriptive names
+    content5 = "Branch: {{short-description}} for {{Describe the bug}}"
+    result5 = detect_variables(content5)
+    assert len(result5) == 2
+    assert result5[0]["name"] == "short-description"
+    assert result5[1]["name"] == "Describe the bug"
 
 
 def test_nested_braces_literal():
