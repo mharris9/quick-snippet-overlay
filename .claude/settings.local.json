@@ -4,7 +4,13 @@
       "Bash(Select-Object ProcessName, Id, Path)",
       "Bash(taskkill:*)",
       "Bash(./.venv/Scripts/python.exe:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(gh pr create:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\")",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(gh pr close:*)"
     ],
     "deny": [],
     "ask": []

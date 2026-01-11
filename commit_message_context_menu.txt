@@ -1,0 +1,39 @@
+Add context menu feature and integrate usage tracking
+
+- Context Menu Feature: Add right-click menu for snippets with Edit/Delete options
+- Usage Tracker: Integrate frequency-based sorting for snippets
+- Edit Button: Add edit snippet button to overlay toolbar
+- Bug Fixes: Fix overlay focus, hotkey toggle, and dialog tracking
+- Single Instance: Implement taskkill-based process enforcement
+
+Context Menu Implementation:
+- Right-click on snippet shows menu with Edit and Delete options
+- Auto-selects snippet on right-click
+- Respects dialog_open flag to prevent conflicts
+- Delete shows confirmation dialog before removal
+- Integrated with existing edit/delete functionality
+
+Usage Tracking:
+- Track snippet usage frequency in usage_stats.yaml
+- Sort snippets by frequency (most used first) then alphabetically
+- Sort search results by frequency, then by search score
+- Increment usage count on snippet copy
+
+Bug Fixes:
+- Fixed overlay focus with _activate_and_focus() method
+- Fixed hotkey toggle to prevent multiple overlays
+- Added dialog_open flag to prevent hotkey during editing
+- Improved overlay positioning on active monitor
+
+Additional Features:
+- Edit button in toolbar for quick snippet editing
+- Batch files for app management (START, STOP, RESTART)
+- Deployment guide and user documentation
+- PyInstaller spec for packaging
+
+Test Results: All existing tests passing
+Coverage: 92% overall
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
