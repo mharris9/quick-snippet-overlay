@@ -1,0 +1,14 @@
+# Quick Snippet Overlay Configuration
+# This file is synced with the repository
+
+hotkey: "ctrl+shift+space"
+snippet_file: "snippets/snippets.yaml"
+max_results: 10
+overlay_opacity: 0.95
+theme: "dark"
+fuzzy_threshold: 60
+search_debounce_ms: 150
+auto_reload: true
+run_on_startup: false
+overlay_width: 600
+overlay_height: 400
